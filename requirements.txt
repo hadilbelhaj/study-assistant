@@ -1,0 +1,46 @@
+# requirements.txt — Phase 1 (MVP): one course, local, single script
+# Pinned to latest stable versions as of Aug 2026. Re-check with
+# `pip list --outdated` every few weeks; this stack moves fast.
+#
+# Install with:  pip install -r requirements.txt
+
+# --- PDF extraction ---
+# Docling handles born-digital text, layout/reading order, tables, AND
+# scanned pages (built-in OCR) in one call — it replaces the old
+# "pdfplumber + PyMuPDF + separate OCR fallback" combo with a single
+# tool, which is why it's the only extractor pinned here for Phase 1.
+# Your slide decks (Karnaugh maps, schematics, equations) are exactly
+# the mixed-content case it's built for; still spot-check formula-heavy
+# chunks by hand early on, per the roadmap note.
+docling==2.122.0
+
+# --- Chunking ---
+# Standalone package (not the full `langchain` framework) — just the
+# text splitters, no extra dependency weight.
+langchain-text-splitters==1.1.2
+
+# --- Embeddings ---
+# sentence-transformers can load both Qwen3-Embedding and BGE-M3 checkpoints.
+# Model choice lives in config.yaml, not here — see README for the two
+# recommended options and why.
+sentence-transformers==6.0.0
+
+# --- Vector store ---
+faiss-cpu==1.15.0
+
+# --- Generation (LLM API call) ---
+# Swap for `openai` (or any OpenAI-compatible client) if you'd rather
+# call a different provider — generate.py isolates this to one file.
+anthropic==1.0.0
+
+# --- Utilities ---
+python-dotenv==1.2.3   # load API keys from .env, never hardcode them
+pyyaml==6.0.3           # config.yaml loading
+tqdm==4.70.0            # progress bars during ingestion (batches of PDFs)
+
+# --- Interface (Phase 1: notebook or CLI, no UI yet) ---
+jupyter==1.1.1
+
+# --- Dev tooling ---
+pytest==9.1.1
+ruff==0.16.4            # lint + format in one tool (replaces black+isort+flake8)

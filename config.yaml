@@ -1,0 +1,28 @@
+# Central config — src/ modules read from here, so changing a model
+# or a chunking parameter never means hunting through code.
+
+embedding:
+  # Two current (Aug 2026) best-fit options for French+English course
+  # material — pick one and comment out the other. See README for why.
+  model: "Qwen/Qwen3-Embedding-0.6B"
+  # model: "BAAI/bge-m3"
+
+generation:
+  provider: "anthropic"
+  model: "claude-sonnet-4-6"
+
+chunking:
+  chunk_size_tokens: 500
+  chunk_overlap_pct: 0.15
+  separators: ["\n\n", "\n", ". ", "? ", "! "]
+
+paths:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  vectorstore_dir: "data/vectorstore"
+
+retrieval:
+  top_k: 5
+  # Phase 2: below the threshold, rag.py should return "not found in
+  # your materials" instead of calling the LLM at all.
+  min_similarity_threshold: 0.35

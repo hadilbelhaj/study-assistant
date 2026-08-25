@@ -1,0 +1,39 @@
+# requirements-later.txt — NOT installed yet.
+# Reference for library choices in Phases 2-5 of the roadmap, checked
+# against current (Aug 2026) benchmarks. Move a line into requirements.txt
+# when you actually start that phase — don't install ahead of need.
+
+# ── Phase 2: retrieval quality ──────────────────────────────────────
+bm25s==0.3.11
+# Faster, actively maintained BM25 implementation — replaces the
+# roadmap's original rank_bm25 suggestion, same role (keyword search
+# to catch acronyms/protocol names dense embeddings miss).
+
+# Reranker: no pip line needed — loaded via sentence-transformers'
+# CrossEncoder, same as your embedding model. Two current options:
+#   - Qwen/Qwen3-Reranker-0.6B   (Apache-2.0, pairs naturally with
+#     Qwen3-Embedding-0.6B if you pick that embedding model)
+#   - BAAI/bge-reranker-v2-m3    (MIT, lighter, the roadmap's original
+#     pick — still a solid, well-tested baseline in 2026)
+
+# ── Phase 3: multi-course, whole-year scale ─────────────────────────
+chromadb==1.5.9
+# Persistent local store, still the easiest "prototyping → light
+# production" option in 2026 — matches the roadmap's Phase 3 choice.
+
+# ── Phase 5: production, for classmates ─────────────────────────────
+qdrant-client==1.19.0
+# Swap in once more than a handful of people query concurrently —
+# best free self-hosted tier, native sparse + ColBERT support if you
+# want to lean further into hybrid search at that scale.
+streamlit==1.62.0
+ollama==0.6.2
+# Local generation once you're serving classmates and want to drop
+# per-query API cost — matches the roadmap's Phase 5 cost-control note.
+
+# ── Note on FlagEmbedding / BGE-M3 ──────────────────────────────────
+# If you choose BAAI/bge-m3 as your embedding model instead of
+# Qwen3-Embedding, its FULL hybrid output (dense + sparse + ColBERT
+# in one forward pass) needs the FlagEmbedding library, not plain
+# sentence-transformers. Only add this if you go that route:
+# FlagEmbedding==1.4.2

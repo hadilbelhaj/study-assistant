@@ -1,0 +1,27 @@
+# Environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+
+# Data — course PDFs and derived indexes stay local/private, never in git
+data/raw/*
+data/processed/*
+data/vectorstore/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/vectorstore/.gitkeep
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Eval outputs (keep the question sets, drop run logs)
+eval/*.log
