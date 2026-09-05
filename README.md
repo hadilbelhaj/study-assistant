@@ -80,7 +80,7 @@ git clone <your-repo-url>
 cd rag-study-assistant
 
 python3 -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # Windows powershell: .\.venv\Scripts\Activate.ps1
 
 # CPU-only machine? Run this first (see note above):
 pip install torch --index-url https://download.pytorch.org/whl/cpu

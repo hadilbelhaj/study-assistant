@@ -1,9 +1,9 @@
 """Extract PDFs -> chunk -> attach metadata -> write JSONL.
 
-Run directly for a first smoke test:
-    python -m src.ingest --course "Reseaux" --doc-type lecture data/raw/reseaux/ch3.pdf
+Edit the constants below, then run for a smoke test:
+    python -m src.ingest
 """
-import argparse
+import hashlib
 import json
 import uuid
 from pathlib import Path
@@ -11,7 +11,19 @@ from pathlib import Path
 import yaml
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-CONFIG = yaml.safe_load(Path("config.yaml").read_text())
+# --- Run parameters (edit before running) ---
+PDF_PATH = Path("data/raw/reseaux/ch3.pdf")
+COURSE = "Reseaux"
+LECTURE = ""
+DOC_TYPE = "lecture"
+LANGUAGE = "fr"
+CONFIG_PATH = Path("config.yaml")
+
+
+def load_config(config_path: Path = CONFIG_PATH) -> dict:
+    """Loaded on demand (inside main()) instead of at import time, so
+    importing this module never touches the filesystem."""
+    return yaml.safe_load(config_path.read_text())
 
 
 def extract_pages(pdf_path: Path) -> list[dict]:
@@ -25,24 +37,27 @@ def extract_pages(pdf_path: Path) -> list[dict]:
     """
     from docling.document_converter import DocumentConverter
 
-    converter = DocumentConverter()
-    result = converter.convert(str(pdf_path))
+    try:
+        result = DocumentConverter().convert(str(pdf_path))
+    except Exception as e:
+        print(f"[extract_pages] failed to convert {pdf_path.name}: {e}")
+        return []
+
     pages = []
-    for page in result.document.pages:
-        text = result.document.export_to_markdown(page_no=page.page_no)
-        pages.append({"page": page.page_no, "text": text})
+    for page_no in result.document.pages:  # dict keyed by page number, 1-based
+        text = result.document.export_to_markdown(page_no=page_no)
+        pages.append({"page": page_no, "text": text})
     return pages
 
 
 def chunk_pages(pages: list[dict], course: str, lecture: str, doc_type: str,
-                 source_file: str, language: str = "fr") -> list[dict]:
-    cfg = CONFIG["chunking"]
+                 source_file: str, cfg: dict, language: str = "fr") -> list[dict]:
+    chunk_cfg = cfg["chunking"]
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=cfg["chunk_size_tokens"],
-        chunk_overlap=int(cfg["chunk_size_tokens"] * cfg["chunk_overlap_pct"]),
-        separators=cfg["separators"],
+        chunk_size=chunk_cfg["chunk_size_tokens"],
+        chunk_overlap=int(chunk_cfg["chunk_size_tokens"] * chunk_cfg["chunk_overlap_pct"]),
+        separators=chunk_cfg["separators"],
     )
-
     chunks = []
     for page in pages:
         for piece in splitter.split_text(page["text"]):
@@ -60,30 +75,31 @@ def chunk_pages(pages: list[dict], course: str, lecture: str, doc_type: str,
 
 
 def ingest_pdf(pdf_path: Path, course: str, lecture: str, doc_type: str,
-                language: str = "fr") -> list[dict]:
+                cfg: dict, language: str = "fr") -> list[dict]:
     pages = extract_pages(pdf_path)
-    return chunk_pages(pages, course, lecture, doc_type, pdf_path.name, language)
+    return chunk_pages(pages, course, lecture, doc_type, pdf_path.name, cfg, language)
 
 
-def save_chunks(chunks: list[dict], course: str) -> Path:
-    out_dir = Path(CONFIG["paths"]["processed_dir"]) / course
+def save_chunks(chunks: list[dict], course: str, pdf_path: Path, processed_dir: Path) -> Path:
+    """File name is the md5 of the source PDF's name, so re-running on
+    the same PDF overwrites the same file instead of piling up random
+    duplicates."""
+    out_dir = Path(processed_dir) / course
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{uuid.uuid4().hex[:8]}.jsonl"
+    file_id = hashlib.md5(pdf_path.name.encode()).hexdigest()
+    out_path = out_dir / f"{file_id}.jsonl"
     with out_path.open("w", encoding="utf-8") as f:
         for chunk in chunks:
             f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
     return out_path
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("pdf", type=Path)
-    parser.add_argument("--course", required=True)
-    parser.add_argument("--lecture", default="")
-    parser.add_argument("--doc-type", default="lecture")
-    parser.add_argument("--language", default="fr")
-    args = parser.parse_args()
-
-    chunks = ingest_pdf(args.pdf, args.course, args.lecture, args.doc_type, args.language)
-    out_path = save_chunks(chunks, args.course)
+def main():
+    cfg = load_config()
+    chunks = ingest_pdf(PDF_PATH, COURSE, LECTURE, DOC_TYPE, cfg, LANGUAGE)
+    out_path = save_chunks(chunks, COURSE, PDF_PATH, cfg["paths"]["processed_dir"])
     print(f"Wrote {len(chunks)} chunks -> {out_path}")
+
+
+if __name__ == "__main__":
+    main()
