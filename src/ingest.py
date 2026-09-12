@@ -7,14 +7,14 @@ import hashlib
 import json
 import uuid
 from pathlib import Path
-
+ 
 import yaml
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # --- Run parameters (edit before running) ---
-PDF_PATH = Path("data/raw/reseaux/ch3.pdf")
-COURSE = "Reseaux"
-LECTURE = ""
+PDF_PATH = Path("data/raw/java/lecture8-accès-au-bd-avec-jdbc.pdf")
+COURSE = "java"
+LECTURE = "Chapitre 8 - Accès au BD avec JDBC"
 DOC_TYPE = "lecture"
 LANGUAGE = "fr"
 CONFIG_PATH = Path("config.yaml")

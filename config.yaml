@@ -7,9 +7,12 @@ embedding:
   model: "Qwen/Qwen3-Embedding-0.6B"
   # model: "BAAI/bge-m3"
 
+#generation:
+#  provider: "anthropic"
+#  model: "claude-sonnet-4-6"
 generation:
-  provider: "anthropic"
-  model: "claude-sonnet-4-6"
+  provider: "ollama"
+  model: "qwen2.5:7b"
 
 chunking:
   chunk_size_tokens: 500
