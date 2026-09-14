@@ -17,7 +17,7 @@ generation:
 chunking:
   chunk_size_tokens: 500
   chunk_overlap_pct: 0.15
-  separators: ["\n\n", "\n", ". ", "? ", "! "]
+  separators: ["\n\n", "\n", ". ", "? ", "! "," "]
 
 paths:
   raw_dir: "data/raw"

@@ -7,17 +7,18 @@ import hashlib
 import json
 import uuid
 from pathlib import Path
- 
+from transformers import AutoTokenizer 
 import yaml
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # --- Run parameters (edit before running) ---
-PDF_PATH = Path("data/raw/java/lecture8-accès-au-bd-avec-jdbc.pdf")
+PDF_PATH = Path("data/raw/java/lecture7-interface-graphique-en-java.pdf")
 COURSE = "java"
-LECTURE = "Chapitre 8 - Accès au BD avec JDBC"
+LECTURE = "Chapitre 7 - Interface graphique en Java"
 DOC_TYPE = "lecture"
 LANGUAGE = "fr"
 CONFIG_PATH = Path("config.yaml")
+
 
 
 def load_config(config_path: Path = CONFIG_PATH) -> dict:
@@ -51,13 +52,9 @@ def extract_pages(pdf_path: Path) -> list[dict]:
 
 
 def chunk_pages(pages: list[dict], course: str, lecture: str, doc_type: str,
-                 source_file: str, cfg: dict, language: str = "fr") -> list[dict]:
+                 source_file: str, cfg: dict, tokenizer, language: str = "fr") -> list[dict]:
     chunk_cfg = cfg["chunking"]
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_cfg["chunk_size_tokens"],
-        chunk_overlap=int(chunk_cfg["chunk_size_tokens"] * chunk_cfg["chunk_overlap_pct"]),
-        separators=chunk_cfg["separators"],
-    )
+    splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(tokenizer, chunk_size=chunk_cfg["chunk_size_tokens"], chunk_overlap=int(chunk_cfg["chunk_size_tokens"] * chunk_cfg["chunk_overlap_pct"]), separators=chunk_cfg["separators"])
     chunks = []
     for page in pages:
         for piece in splitter.split_text(page["text"]):
@@ -75,9 +72,9 @@ def chunk_pages(pages: list[dict], course: str, lecture: str, doc_type: str,
 
 
 def ingest_pdf(pdf_path: Path, course: str, lecture: str, doc_type: str,
-                cfg: dict, language: str = "fr") -> list[dict]:
+                cfg: dict, tokenizer: AutoTokenizer, language: str = "fr") -> list[dict]:
     pages = extract_pages(pdf_path)
-    return chunk_pages(pages, course, lecture, doc_type, pdf_path.name, cfg, language)
+    return chunk_pages(pages, course, lecture, doc_type, pdf_path.name, cfg, tokenizer, language)
 
 
 def save_chunks(chunks: list[dict], course: str, pdf_path: Path, processed_dir: Path) -> Path:
@@ -96,8 +93,9 @@ def save_chunks(chunks: list[dict], course: str, pdf_path: Path, processed_dir: 
 
 def main():
     cfg = load_config()
-    chunks = ingest_pdf(PDF_PATH, COURSE, LECTURE, DOC_TYPE, cfg, LANGUAGE)
-    out_path = save_chunks(chunks, COURSE, PDF_PATH, cfg["paths"]["processed_dir"])
+    tokenizer = AutoTokenizer.from_pretrained(cfg["embedding"]["model"])
+    chunks = ingest_pdf(PDF_PATH, COURSE, LECTURE, DOC_TYPE, cfg, tokenizer, LANGUAGE)
+    out_path = save_chunks(chunks, COURSE, PDF_PATH, cfg["paths"]["processed_dir"])  # tokenizer removed here
     print(f"Wrote {len(chunks)} chunks -> {out_path}")
 
 

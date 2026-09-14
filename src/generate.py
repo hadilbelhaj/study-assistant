@@ -48,6 +48,6 @@ def generate(query: str, chunks: list[dict]) -> str:
         messages=[{"role": "user", "content": prompt}],
         # num_gpu=0 forces CPU-only inference. Workaround for a known
         # Ollama/Windows/NVIDIA CUDA crash -- see config.yaml comment.
-        options={"num_gpu": 0},
+        #options={"num_gpu": 0},
     )
     return response["message"]["content"]
