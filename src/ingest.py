@@ -1,30 +1,73 @@
 """Extract PDFs -> chunk -> attach metadata -> write JSONL.
 
-Edit the constants below, then run for a smoke test:
+Batch mode: walks data/raw/<course>/*.pdf. Everything is derived from
+the path and filename — no manifest, no per-file config:
+
+  - course:   parent folder name (data/raw/java/... -> "java")
+  - doc_type: filename prefix (lecture/tp/td/examen -> ...)
+  - lecture:  built from the filename, e.g.
+              lecture7-interface-graphique-en-java.pdf
+              -> "Chapitre 7 - Interface graphique en Java"
+  - language: a single project-wide constant (LANGUAGE below) — not
+              per-file, since every course note is French right now.
+
+This only works because the naming convention is fixed:
+    <prefix><N>[-part<M>]-<title-words-separated-by-hyphens>.pdf
+A file that doesn't match it still gets ingested (fallback: filename
+as title, doc_type="lecture") but prints a warning — there's no
+manifest left to override it, so a genuine exception has to be fixed
+by renaming the file to fit the convention.
+
+Run:
     python -m src.ingest
 """
 import hashlib
 import json
+import re
 import uuid
 from pathlib import Path
-from transformers import AutoTokenizer 
+from transformers import AutoTokenizer
 import yaml
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# --- Run parameters (edit before running) ---
-PDF_PATH = Path("data/raw/java/lecture7-interface-graphique-en-java.pdf")
-COURSE = "java"
-LECTURE = "Chapitre 7 - Interface graphique en Java"
-DOC_TYPE = "lecture"
-LANGUAGE = "fr"
 CONFIG_PATH = Path("config.yaml")
+LANGUAGE = "fr"
 
+# Filename prefix -> (doc_type, display label used in the auto-title)
+PREFIX_INFO = {
+    "lecture": ("lecture", "Chapitre"),
+    "tp": ("exercise", "TP"),
+    "td": ("exercise", "TD"),
+    "examen": ("exam", "Examen"),
+}
+PROPER_NOUNS = {
+    "java": "Java",
+    "jdbc": "JDBC",
+    "bd": "BD",
+}
+FILENAME_PATTERN = re.compile(r"([a-z]+)(\d+)(?:-part(\d+))?-(.+)")
+def resolve_metadata(pdf_path: Path) -> dict:
+    """Derive course/doc_type/lecture/language purely from the path,
+    per the naming convention documented at the top of this file."""
+    course = pdf_path.parent.name
+    stem = pdf_path.stem.lower()
+    match = FILENAME_PATTERN.match(stem)
 
+    if match:
+        prefix, number, part, rest = match.groups()
+        doc_type, label = PREFIX_INFO.get(prefix, ("lecture", prefix.capitalize()))
+        words = [PROPER_NOUNS.get(w, w) for w in rest.split("-")]
+        title_body = " ".join(words)
+        title_body = title_body[0].upper() + title_body[1:] if title_body else title_body
+        part_suffix = f" (Partie {part})" if part else ""
+        lecture = f"{label} {number}{part_suffix} - {title_body}"
+    else:
+        print(f"[resolve_metadata] WARNING: {pdf_path.name} doesn't match the naming convention "
+              f"— using filename as title and doc_type='lecture'")
+        doc_type = "lecture"
+        lecture = pdf_path.stem
 
-def load_config(config_path: Path = CONFIG_PATH) -> dict:
-    """Loaded on demand (inside main()) instead of at import time, so
-    importing this module never touches the filesystem."""
-    return yaml.safe_load(config_path.read_text())
+    return {"course": course, "doc_type": doc_type, "lecture": lecture, "language": LANGUAGE}
 
 
 def extract_pages(pdf_path: Path) -> list[dict]:
@@ -54,7 +97,12 @@ def extract_pages(pdf_path: Path) -> list[dict]:
 def chunk_pages(pages: list[dict], course: str, lecture: str, doc_type: str,
                  source_file: str, cfg: dict, tokenizer, language: str = "fr") -> list[dict]:
     chunk_cfg = cfg["chunking"]
-    splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(tokenizer, chunk_size=chunk_cfg["chunk_size_tokens"], chunk_overlap=int(chunk_cfg["chunk_size_tokens"] * chunk_cfg["chunk_overlap_pct"]), separators=chunk_cfg["separators"])
+    splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
+        tokenizer,
+        chunk_size=chunk_cfg["chunk_size_tokens"],
+        chunk_overlap=int(chunk_cfg["chunk_size_tokens"] * chunk_cfg["chunk_overlap_pct"]),
+        separators=chunk_cfg["separators"],
+    )
     chunks = []
     for page in pages:
         for piece in splitter.split_text(page["text"]):
@@ -92,11 +140,20 @@ def save_chunks(chunks: list[dict], course: str, pdf_path: Path, processed_dir: 
 
 
 def main():
-    cfg = load_config()
+    cfg = yaml.safe_load(config_path.read_text())
     tokenizer = AutoTokenizer.from_pretrained(cfg["embedding"]["model"])
-    chunks = ingest_pdf(PDF_PATH, COURSE, LECTURE, DOC_TYPE, cfg, tokenizer, LANGUAGE)
-    out_path = save_chunks(chunks, COURSE, PDF_PATH, cfg["paths"]["processed_dir"])  # tokenizer removed here
-    print(f"Wrote {len(chunks)} chunks -> {out_path}")
+    raw_dir = Path(cfg["paths"]["raw_dir"])
+    pdf_paths = sorted(raw_dir.glob("**/*.pdf"))
+    if not pdf_paths:
+        print(f"[main] no PDFs found under {raw_dir}")
+        return
+
+    for pdf_path in pdf_paths:
+        meta = resolve_metadata(pdf_path)
+        chunks = ingest_pdf(pdf_path, meta["course"], meta["lecture"], meta["doc_type"],
+                             cfg, tokenizer, meta["language"])
+        out_path = save_chunks(chunks, meta["course"], pdf_path, cfg["paths"]["processed_dir"])
+        print(f"Wrote {len(chunks)} chunks -> {out_path} ({meta['course']}/{meta['lecture']})")
 
 
 if __name__ == "__main__":

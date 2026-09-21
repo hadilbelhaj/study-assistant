@@ -11,7 +11,10 @@ from pathlib import Path
 import faiss
 import numpy as np
 import yaml
-
+from src.sparse import (
+    build_sparse_index,
+    load_sparse_index,
+)
 from src.embed import embed_texts
 
 CONFIG = yaml.safe_load(Path("config.yaml").read_text())
@@ -19,21 +22,42 @@ VECTORSTORE_DIR = Path(CONFIG["paths"]["vectorstore_dir"])
 
 
 def build_index(chunks: list[dict], name: str = "index") -> None:
-    vectors = np.array(embed_texts([c["text"] for c in chunks])).astype("float32")
+    vectors = np.array(
+        embed_texts([c["text"] for c in chunks])
+    ).astype("float32")
+
     index = faiss.IndexFlatL2(vectors.shape[1])
     index.add(vectors)
 
     VECTORSTORE_DIR.mkdir(parents=True, exist_ok=True)
-    faiss.write_index(index, str(VECTORSTORE_DIR / f"{name}.faiss"))
+
+    faiss.write_index(
+        index,
+        str(VECTORSTORE_DIR / f"{name}.faiss")
+    )
+
     with (VECTORSTORE_DIR / f"{name}.meta.pkl").open("wb") as f:
         pickle.dump(chunks, f)
 
+    build_sparse_index(
+        chunks,
+        VECTORSTORE_DIR / f"{name}.bm25.pkl"
+    )
+
 
 def load_index(name: str = "index"):
-    index = faiss.read_index(str(VECTORSTORE_DIR / f"{name}.faiss"))
+    index = faiss.read_index(
+        str(VECTORSTORE_DIR / f"{name}.faiss")
+    )
+
     with (VECTORSTORE_DIR / f"{name}.meta.pkl").open("rb") as f:
         chunks = pickle.load(f)
-    return index, chunks
+
+    bm25 = load_sparse_index(
+        VECTORSTORE_DIR / f"{name}.bm25.pkl"
+    )
+
+    return index, chunks, bm25
 
 
 def load_chunks_from_jsonl(processed_dir: Path) -> list[dict]:

@@ -1,0 +1,34 @@
+java:
+  lecture1-introduction-et-première-utilisation-du-java.pdf:
+    lecture: "Chapitre 1 - Introduction et première utilisation du Java"
+    language: fr
+  lecture2-java-les-fondamentaux.pdf:
+    lecture: "Chapitre 2 - Java : les fondamentaux"
+    language: fr
+  lecture3-classe-et-objet.pdf:
+    lecture: "Chapitre 3 - Classe et objet"
+    language: fr
+  lecture4-part1-héritage-et-polymorphisme.pdf:
+    lecture: "Chapitre 4 (Partie 1) - Héritage et polymorphisme"
+    language: fr
+  lecture4-part2-héritage-et-polymorphisme.pdf:
+    lecture: "Chapitre 4 (Partie 2) - Héritage et polymorphisme"
+    language: fr
+  lecture5-les-exceptions.pdf:
+    lecture: "Chapitre 5 - Les exceptions"
+    language: fr
+  lecture6-les-collections.pdf:
+    lecture: "Chapitre 6 - Les collections"
+    language: fr
+  lecture7-interface-graphique-en-java.pdf:
+    lecture: "Chapitre 7 - Interface graphique en Java"
+    language: fr
+  lecture8-accès-au-bd-avec-jdbc.pdf:
+    lecture: "Chapitre 8 - Accès aux bases de données avec JDBC"
+    language: fr
+
+# Add other courses here the same way, e.g.:
+# finance:
+#   lecture1-intro-marches-financiers.pdf:
+#     lecture: "Chapitre 1 - Introduction aux marchés financiers"
+#     language: fr

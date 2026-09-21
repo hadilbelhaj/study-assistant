@@ -18,11 +18,11 @@ def retrieve(query: str, name: str = "index", k: int | None = None,
              metadata_filter: dict | None = None) -> list[dict]:
     """metadata_filter example: {"course": "Reseaux", "doc_type": "exam"}"""
     k = k or CONFIG["retrieval"]["top_k"]
-    index, chunks = load_index(name)
+    index, chunks, bm25 = load_index(name)
 
     query_vec = np.array([embed_query(query)]).astype("float32")
     # Over-fetch so filtering doesn't leave us short of k results.
-    distances, ids = index.search(query_vec, k * 5 if metadata_filter else k)
+    distances, ids = index.search(query_vec, k * 5 if metadata_filter else k) 
 
     results = []
     for dist, idx in zip(distances[0], ids[0]):
