@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+src/__init__.py
+src/embed.py
+src/generate.py
+src/index.py
+src/ingest.py
+src/rag.py
+src/retrieve.py
+src/sparse.py
+src/UNKNOWN.egg-info/PKG-INFO
+src/UNKNOWN.egg-info/SOURCES.txt
+src/UNKNOWN.egg-info/dependency_links.txt
+src/UNKNOWN.egg-info/top_level.txt
+tests/test_ingest.py
+tests/test_retrieval.py
