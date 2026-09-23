@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import yaml
-
+from src.reranker import rerank
 from src.embed import embed_query
 from src.index import load_index
 from src.sparse import search_sparse
@@ -128,11 +128,9 @@ def reciprocal_rank_fusion(
 def retrieve(
     query: str,
     name: str = "index",
-    k: int | None = None,
+    k: int = 5,
     metadata_filter: dict | None = None,
 ) -> list[dict]:
-
-    k = k or CONFIG["retrieval"]["top_k"]
 
     index, chunks, bm25 = load_index(name)
 
@@ -161,4 +159,10 @@ def retrieve(
         ]
     )
 
-    return fused_results[:k]
+    candidates = fused_results[:candidate_k]
+
+    return rerank(
+        query=query,
+        chunks=candidates,
+        top_k=k,
+    )
