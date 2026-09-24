@@ -11,8 +11,6 @@ MODEL_NAME = "Qwen/Qwen3-Reranker-0.6B"
 @lru_cache(maxsize=1)
 def _model() -> CrossEncoder:
     return CrossEncoder(MODEL_NAME)
-
-
 def rerank(
     query: str,
     chunks: list[dict],

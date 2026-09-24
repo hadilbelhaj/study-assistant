@@ -1,8 +1,3 @@
-"""Query -> top-k chunks, with an optional metadata filter.
-
-Phase 2 will add BM25 + reranking here; for the MVP this is plain
-dense retrieval only.
-"""
 from pathlib import Path
 
 import numpy as np
