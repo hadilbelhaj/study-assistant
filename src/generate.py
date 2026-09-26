@@ -7,9 +7,7 @@ Ollama runs fully locally -- no API key, no internet call, no cost.
 It must be running (the Ollama app / `ollama serve`) and the model
 must already be pulled once via `ollama pull <model>`.
 """
-from pathlib import Path
 from src.config import get_config
-import yaml
 from ollama import chat
 
 PROMPT_TEMPLATE = """Contexte (extrait de {source_file}, page {page}):
@@ -21,7 +19,6 @@ Réponds uniquement à partir du contexte ci-dessus. Cite la source
 (fichier + page) pour chaque affirmation. Si le contexte ne
 contient pas la réponse, dis-le clairement plutôt que d'inventer.
 """
-
 
 def build_prompt(query: str, chunks: list[dict]) -> str:
     context = "\n\n".join(

@@ -2,14 +2,12 @@
 
 from functools import lru_cache
 from pathlib import Path
-
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class EmbeddingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     model: str
 
 
