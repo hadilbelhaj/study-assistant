@@ -8,11 +8,9 @@ It must be running (the Ollama app / `ollama serve`) and the model
 must already be pulled once via `ollama pull <model>`.
 """
 from pathlib import Path
-
+from src.config import get_config
 import yaml
 from ollama import chat
-
-CONFIG = yaml.safe_load(Path("config.yaml").read_text())
 
 PROMPT_TEMPLATE = """Contexte (extrait de {source_file}, page {page}):
 {retrieved_chunks}
@@ -39,15 +37,12 @@ def build_prompt(query: str, chunks: list[dict]) -> str:
 
 
 def generate(query: str, chunks: list[dict]) -> str:
+    config = get_config()
     if not chunks:
         return "Ce n'est pas dans vos documents fournis."
-
     prompt = build_prompt(query, chunks)
     response = chat(
-        model=CONFIG["generation"]["model"],
+        model=config.generation.model,
         messages=[{"role": "user", "content": prompt}],
-        # num_gpu=0 forces CPU-only inference. Workaround for a known
-        # Ollama/Windows/NVIDIA CUDA crash -- see config.yaml comment.
-        #options={"num_gpu": 0},
     )
     return response["message"]["content"]

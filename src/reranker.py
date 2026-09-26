@@ -1,22 +1,16 @@
 """Rerank retrieved chunks using Qwen3-Reranker-0.6B."""
 
 from functools import lru_cache
-
+from src.config import get_config
 from sentence_transformers import CrossEncoder
 
 
-MODEL_NAME = "Qwen/Qwen3-Reranker-0.6B"
-
-
 @lru_cache(maxsize=1)
-def _model() -> CrossEncoder:
-    return CrossEncoder(MODEL_NAME)
-def rerank(
-    query: str,
-    chunks: list[dict],
-    top_k: int,
-) -> list[dict]:
+def _model():
+    config = get_config()
+    return CrossEncoder(config.reranker.model)
 
+def rerank(query: str,chunks: list[dict],top_k: int) -> list[dict]:
     pairs = [
         (query, chunk["text"])
         for chunk in chunks

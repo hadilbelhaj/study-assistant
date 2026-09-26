@@ -1,15 +1,11 @@
-# Central config — src/ modules read from here, so changing a model
-# or a chunking parameter never means hunting through code.
+# Central application configuration.
+# Change settings here instead of modifying application code.
 
 embedding:
-  # Two current (Aug 2026) best-fit options for French+English course
-  # material — pick one and comment out the other. See README for why.
   model: "Qwen/Qwen3-Embedding-0.6B"
+  # Alternative:
   # model: "BAAI/bge-m3"
 
-#generation:
-#  provider: "anthropic"
-#  model: "claude-sonnet-4-6"
 generation:
   provider: "ollama"
   model: "qwen2.5:7b"
@@ -17,7 +13,13 @@ generation:
 chunking:
   chunk_size_tokens: 500
   chunk_overlap_pct: 0.15
-  separators: ["\n\n", "\n", ". ", "? ", "! "," "]
+  separators:
+    - "\n\n"
+    - "\n"
+    - ". "
+    - "? "
+    - "! "
+    - " "
 
 paths:
   raw_dir: "data/raw"
@@ -26,6 +28,12 @@ paths:
 
 retrieval:
   top_k: 5
-  # Phase 2: below the threshold, rag.py should return "not found in
-  # your materials" instead of calling the LLM at all.
+  candidate_k: 20
+  rrf_k: 60
+
+  # Planned for a later retrieval-confidence step.
+  # Do not use this yet until calibrated on your evaluation dataset.
   min_similarity_threshold: 0.35
+
+reranker:
+  model: "Qwen/Qwen3-Reranker-0.6B"
