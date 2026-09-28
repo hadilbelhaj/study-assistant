@@ -2,20 +2,37 @@
 
 Flow:
     PDF
-    -> resolve filesystem/filename metadata-> extract pages -> detect document language-> chunk-> validate chunks with Pydantic-> write JSONL
+    -> DoclingDocument
+    -> language detection
+    -> HybridChunker
+    -> contextualized chunks
+    -> Pydantic validation
+    -> JSONL
 """
+
 import hashlib
 import json
+import logging
 import re
 import uuid
 from pathlib import Path
+
 import yaml
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from docling.chunking import HybridChunker
+from docling.document_converter import DocumentConverter
+from docling_core.transforms.chunker.tokenizer.huggingface import (
+    HuggingFaceTokenizer,
+)
 from transformers import AutoTokenizer
+
 from src.language import detect_language
 from src.schemas import Chunk
-from src.config import get_config
 
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Filename / metadata rules
+# ---------------------------------------------------------------------------
 
 PREFIX_INFO = {
     "lecture": ("lecture", "Chapitre"),
@@ -33,21 +50,12 @@ PROPER_NOUNS = {
 FILENAME_PATTERN = re.compile(r"([a-z]+)(\d+)(?:-part(\d+))?-(.+)")
 
 
-def load_processed_ids(path: Path) -> set[str]:
-    """Load already processed document IDs."""
-    if not path.exists() or path.stat().st_size == 0:
-        return set()
-    with path.open("r", encoding="utf-8") as file:
-        return set(json.load(file))
-
-
-def save_processed_ids(path: Path, processed_ids: set[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as file:
-        json.dump(sorted(processed_ids), file, indent=2)
-
+# ---------------------------------------------------------------------------
+# Processing state
+# ---------------------------------------------------------------------------
 
 def get_document_id(pdf_path: Path) -> str:
+    """Return a SHA-256 hash of the PDF content."""
     sha256 = hashlib.sha256()
     with pdf_path.open("rb") as file:
         while chunk := file.read(1024 * 1024):
@@ -55,30 +63,90 @@ def get_document_id(pdf_path: Path) -> str:
     return sha256.hexdigest()
 
 
+def load_processed_ids(path: Path) -> set[str]:
+    """Load IDs of documents that were already processed."""
+    if not path.exists() or path.stat().st_size == 0:
+        return set()
+
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+        if not isinstance(data, list):
+            raise ValueError(
+                "already_processed.json must contain a JSON list."
+            )
+        return set(data)
+    except (json.JSONDecodeError, ValueError) as exc:
+        logger.warning(
+            "Invalid processing state in %s: %s. "
+            "Starting with an empty processed set.",
+            path,
+            exc,
+        )
+        return set()
+
+
+def save_processed_ids(path: Path, processed_ids: set[str]) -> None:
+    """Persist processed document IDs."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as file:
+        json.dump(sorted(processed_ids), file, indent=2)
+
+
+# ---------------------------------------------------------------------------
+# Metadata
+# ---------------------------------------------------------------------------
+
 def resolve_metadata(pdf_path: Path, raw_dir: Path) -> dict:
+    """Resolve metadata from directory structure and filename.
+
+    Expected structure:
+        raw/<study_year>/<semester>/<course>/<file>.pdf
+
+    Example:
+        raw/1dni/s1/java/lecture5-les-exceptions.pdf
+    """
     relative_path = pdf_path.relative_to(raw_dir)
     if len(relative_path.parts) != 4:
-        raise ValueError(f"Invalid PDF path: {pdf_path}. Expected: raw/<study_year>/<semester>/<course>/<file>.pdf")
-    
+        raise ValueError(
+            f"Invalid PDF path: {pdf_path}. "
+            "Expected: raw/<study_year>/<semester>/<course>/<file>.pdf"
+        )
+
     study_year, semester, course, filename = relative_path.parts
-    semester = semester.upper()
-    course = course.lower()
+    study_year = study_year.lower().strip()
+    semester = semester.upper().strip()
+    course = course.lower().strip()
+
     if semester not in {"S1", "S2"}:
-        raise ValueError(f"Invalid semester '{semester}' in {pdf_path}")
-    
+        raise ValueError(
+            f"Invalid semester '{semester}' in {pdf_path}. Expected S1 or S2."
+        )
+
     stem = pdf_path.stem.lower()
     match = FILENAME_PATTERN.fullmatch(stem)
+
     if match:
         prefix, number, part, title = match.groups()
-        doc_type, label = PREFIX_INFO.get(prefix, ("lecture", prefix.capitalize()))
-        words = [PROPER_NOUNS.get(word, word) for word in title.split("-")]
+        doc_type, label = PREFIX_INFO.get(
+            prefix,
+            ("lecture", prefix.capitalize()),
+        )
+        words = [
+            PROPER_NOUNS.get(word, word)
+            for word in title.split("-")
+        ]
         title_body = " ".join(words)
         if title_body:
             title_body = title_body[0].upper() + title_body[1:]
+
         part_suffix = f" (Partie {part})" if part else ""
         lecture = f"{label} {number}{part_suffix} - {title_body}"
     else:
-        print(f"WARNING: Filename does not match naming convention: {pdf_path.name}")
+        logger.warning(
+            "Filename does not match naming convention: %s",
+            pdf_path.name,
+        )
         doc_type = "lecture"
         lecture = pdf_path.stem
 
@@ -92,178 +160,305 @@ def resolve_metadata(pdf_path: Path, raw_dir: Path) -> dict:
     }
 
 
-def build_splitter(cfg: dict, tokenizer) -> RecursiveCharacterTextSplitter:
-    """Create the text splitter once."""
-    chunk_cfg = cfg["chunking"]
-    return RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
-        tokenizer,
-        chunk_size=chunk_cfg["chunk_size_tokens"],
-        chunk_overlap=int(chunk_cfg["chunk_size_tokens"] * chunk_cfg["chunk_overlap_pct"]),
-        separators=chunk_cfg["separators"],
+# ---------------------------------------------------------------------------
+# Docling
+# ---------------------------------------------------------------------------
+
+def build_chunker(cfg: dict) -> HybridChunker:
+    """Create the HybridChunker using the embedding tokenizer."""
+    embedding_model = cfg["embedding"]["model"]
+    max_tokens = cfg["chunking"]["chunk_size_tokens"]
+
+    tokenizer = HuggingFaceTokenizer(
+        tokenizer=AutoTokenizer.from_pretrained(embedding_model),
+        max_tokens=max_tokens,
+    )
+    return HybridChunker(
+        tokenizer=tokenizer,
+        merge_peers=True,
+        repeat_table_header=True,
     )
 
 
-def extract_pages(pdf_path: Path, converter) -> list[dict]:
-    """Extract PDF pages as markdown text."""
+def extract_document(pdf_path: Path, converter: DocumentConverter):
+    """Convert a PDF into a DoclingDocument."""
     try:
-        result = converter.convert(str(pdf_path))
-    except Exception as exc:
-        print(f"ERROR: Failed to convert PDF {pdf_path.name}: {exc}")
-        return []
-    
-    pages = []
-    for page_no in result.document.pages:
-        text = result.document.export_to_markdown(page_no=page_no)
-        if text and text.strip():
-            pages.append({"page": page_no, "text": text})
-    return pages
+        result = converter.convert(source=str(pdf_path))
+    except Exception:
+        logger.exception("Failed to convert %s", pdf_path.name)
+        return None
+
+    return result.document
 
 
-def detect_document_language(pages: list[dict]) -> str:
-    """Detect language once for the whole document."""
-    document_text = "\n".join(page["text"] for page in pages if page["text"].strip())
-    if not document_text.strip():
-        raise ValueError("Cannot detect language: document contains no text.")
-    return detect_language(document_text)
+# ---------------------------------------------------------------------------
+# Language detection
+# ---------------------------------------------------------------------------
+
+def detect_document_language(document) -> str:
+    """Detect the primary language of a DoclingDocument."""
+    text = document.export_to_markdown()
+    if not text.strip():
+        raise ValueError(
+            "Cannot detect language: document contains no text."
+        )
+    return detect_language(text)
 
 
-def make_chunk_id(document_id: str, page: int, chunk_index: int, text: str) -> uuid.UUID:
-    identity = f"{document_id}|{page}|{chunk_index}|{text}"
+# ---------------------------------------------------------------------------
+# Chunk metadata extraction
+# ---------------------------------------------------------------------------
+
+def get_page_range(doc_chunk) -> tuple[int | None, int | None]:
+    """Extract the page range covered by a Docling chunk."""
+    page_numbers = []
+    if not doc_chunk.meta:
+        return None, None
+
+    for doc_item in doc_chunk.meta.doc_items:
+        for provenance in doc_item.prov:
+            page_numbers.append(provenance.page_no)
+
+    if not page_numbers:
+        return None, None
+
+    return min(page_numbers), max(page_numbers)
+
+
+def get_section(doc_chunk) -> str | None:
+    """Return the hierarchical heading context of a chunk."""
+    if not doc_chunk.meta:
+        return None
+    headings = doc_chunk.meta.headings
+    if not headings:
+        return None
+    return " > ".join(headings)
+
+
+# ---------------------------------------------------------------------------
+# Chunk identity
+# ---------------------------------------------------------------------------
+
+def make_chunk_id(
+    document_id: str,
+    chunk_index: int,
+    text: str,
+) -> uuid.UUID:
+    """Create a deterministic UUID for a chunk."""
+    identity = f"{document_id}|{chunk_index}|{text}"
     return uuid.uuid5(uuid.NAMESPACE_URL, identity)
 
 
-def chunk_pages(
-    pages: list[dict],
+# ---------------------------------------------------------------------------
+# Chunking
+# ---------------------------------------------------------------------------
+
+def chunk_document(
+    document,
     metadata: dict,
-    language: str,
     document_id: str,
-    splitter: RecursiveCharacterTextSplitter,
+    language: str,
+    chunker: HybridChunker,
 ) -> list[Chunk]:
+    """Chunk a DoclingDocument and convert the chunks to our schema."""
     chunks = []
-    chunk_index = 0
 
-    for page in pages:
-        pieces = splitter.split_text(page["text"])
-        for piece in pieces:
-            if not piece.strip():
-                continue
+    for chunk_index, doc_chunk in enumerate(chunker.chunk(dl_doc=document)):
+        text = chunker.contextualize(doc_chunk)
+        if not text.strip():
+            continue
 
-            chunk = Chunk(
-                id=make_chunk_id(document_id, page["page"], chunk_index, piece),
+        page_start, page_end = get_page_range(doc_chunk)
+        section = get_section(doc_chunk)
+
+        chunk = Chunk(
+            id=make_chunk_id(
                 document_id=document_id,
-                text=piece,
-                course=metadata["course"],
-                study_year=metadata["study_year"],
-                semester=metadata["semester"],
-                lecture=metadata["lecture"],
-                doc_type=metadata["doc_type"],
-                language=language,
-                source_file=metadata["source_file"],
-                page=page["page"],
                 chunk_index=chunk_index,
-            )
-            chunks.append(chunk)
-            chunk_index += 1
+                text=text,
+            ),
+            document_id=document_id,
+            text=text,
+            course=metadata["course"],
+            study_year=metadata["study_year"],
+            semester=metadata["semester"],
+            lecture=metadata["lecture"],
+            doc_type=metadata["doc_type"],
+            language=language,
+            source_file=metadata["source_file"],
+            page_start=page_start,
+            page_end=page_end,
+            section=section,
+            chunk_index=chunk_index,
+        )
+        chunks.append(chunk)
 
     return chunks
 
 
-def ingest_pdf(pdf_path: Path, metadata: dict, document_id: str, converter, splitter) -> list[Chunk]:
-    pages = extract_pages(pdf_path, converter)
-    if not pages:
-        print(f"WARNING: No text extracted from {pdf_path.name}")
+# ---------------------------------------------------------------------------
+# Per-document pipeline
+# ---------------------------------------------------------------------------
+
+def ingest_pdf(
+    pdf_path: Path,
+    metadata: dict,
+    document_id: str,
+    converter: DocumentConverter,
+    chunker: HybridChunker,
+) -> list[Chunk]:
+    """Run extraction -> language detection -> chunking."""
+    document = extract_document(pdf_path, converter)
+    if document is None:
         return []
 
-    language = detect_document_language(pages)
-    print(f"INFO: Detected language '{language}' for {pdf_path.name}")
+    language = detect_document_language(document)
+    logger.info(
+        "Detected language '%s' for %s",
+        language,
+        pdf_path.name,
+    )
 
-    return chunk_pages(
-        pages=pages,
+    return chunk_document(
+        document=document,
         metadata=metadata,
-        language=language,
         document_id=document_id,
-        splitter=splitter,
+        language=language,
+        chunker=chunker,
     )
 
 
-def save_chunks(chunks: list[Chunk], pdf_path: Path, raw_dir: Path, processed_dir: Path) -> Path:
-    """Write validated chunks to a deterministic JSONL file."""
+# ---------------------------------------------------------------------------
+# Persistence
+# ---------------------------------------------------------------------------
+
+def save_chunks(
+    chunks: list[Chunk],
+    pdf_path: Path,
+    raw_dir: Path,
+    processed_dir: Path,
+) -> Path:
+    """Write validated chunks to JSONL."""
     relative_path = pdf_path.relative_to(raw_dir)
-    study_year, semester, course = relative_path.parts[0], relative_path.parts[1], relative_path.parts[2]
-    
+    study_year, semester, course = relative_path.parts[:3]
+
     output_dir = Path(processed_dir) / study_year / semester / course
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    source_identity = relative_path.as_posix()
-    file_id = hashlib.md5(source_identity.encode("utf-8")).hexdigest()
-    output_path = output_dir / f"{file_id}.jsonl"
-    
+
+    document_id = chunks[0].document_id
+    output_path = output_dir / f"{document_id}.jsonl"
+
     with output_path.open("w", encoding="utf-8") as file:
         for chunk in chunks:
-            file.write(json.dumps(chunk.model_dump(mode="json"), ensure_ascii=False) + "\n")
-            
+            file.write(
+                json.dumps(
+                    chunk.model_dump(mode="json"),
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
+
     return output_path
 
 
-def process_pdf(pdf_path: Path, raw_dir: Path, processed_dir: Path, converter, splitter) -> Path | None:
-    """Process one PDF from extraction to JSONL."""
+# ---------------------------------------------------------------------------
+# Per-file orchestration
+# ---------------------------------------------------------------------------
+
+def process_pdf(
+    pdf_path: Path,
+    raw_dir: Path,
+    processed_dir: Path,
+    converter: DocumentConverter,
+    chunker: HybridChunker,
+) -> tuple[str, Path] | None:
+    """Process one PDF and return its document ID and output path."""
+    document_id = get_document_id(pdf_path)
     metadata = resolve_metadata(pdf_path, raw_dir)
-    chunks = ingest_pdf(pdf_path=pdf_path, metadata=metadata, converter=converter, splitter=splitter)
+
+    chunks = ingest_pdf(
+        pdf_path=pdf_path,
+        metadata=metadata,
+        document_id=document_id,
+        converter=converter,
+        chunker=chunker,
+    )
     if not chunks:
         return None
-        
-    output_path = save_chunks(chunks=chunks, pdf_path=pdf_path, raw_dir=raw_dir, processed_dir=processed_dir)
-    print(f"INFO: Wrote {len(chunks)} chunks -> {output_path}")
-    return output_path
 
+    output_path = save_chunks(
+        chunks=chunks,
+        pdf_path=pdf_path,
+        raw_dir=raw_dir,
+        processed_dir=processed_dir,
+    )
+
+    return document_id, output_path
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main() -> None:
-    config = get_config()
-    raw_dir = config.paths.raw_dir
-    processed_dir = config.paths.raw_dir
+    """Run batch ingestion."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s | %(message)s",
+    )
 
+    config_path = Path("config.yaml")
+    with config_path.open(encoding="utf-8") as file:
+        cfg = yaml.safe_load(file)
+
+    raw_dir = Path(cfg["paths"]["raw_dir"])
+    processed_dir = Path(cfg["paths"]["processed_dir"])
     processed_ids_path = processed_dir / "already_processed.json"
+
     processed_ids = load_processed_ids(processed_ids_path)
-
-    tokenizer = AutoTokenizer.from_pretrained(config.embedding.model)
-    splitter = build_splitter(config, tokenizer)
-
-    from docling.document_converter import DocumentConverter
+    chunker = build_chunker(cfg)
     converter = DocumentConverter()
 
     pdf_paths = sorted(raw_dir.rglob("*.pdf"))
     if not pdf_paths:
-        print(f"WARNING: No PDFs found under {raw_dir}")
+        logger.warning("No PDFs found under %s", raw_dir)
         return
 
     for pdf_path in pdf_paths:
         document_id = get_document_id(pdf_path)
+
         if document_id in processed_ids:
-            print(f"INFO: Skipping already processed: {pdf_path.name}")
+            logger.info("Skipping already processed: %s", pdf_path.name)
             continue
 
+        logger.info("Processing document %s", pdf_path.name)
+
         try:
-            print(f"INFO: Processing document {pdf_path.name}")
-            metadata = resolve_metadata(pdf_path, raw_dir)
-            chunks = ingest_pdf(
+            result = process_pdf(
                 pdf_path=pdf_path,
-                metadata=metadata,
-                document_id=document_id,
+                raw_dir=raw_dir,
+                processed_dir=processed_dir,
                 converter=converter,
-                splitter=splitter,
+                chunker=chunker,
             )
 
-            if not chunks:
-                print(f"WARNING: No chunks generated for {pdf_path.name}")
+            if result is None:
+                logger.warning(
+                    "No chunks generated for %s",
+                    pdf_path.name,
+                )
                 continue
 
-            output_path = save_chunks(chunks=chunks,pdf_path=pdf_path,raw_dir=raw_dir,processed_dir=processed_dir)
+            document_id, output_path = result
+
             processed_ids.add(document_id)
             save_processed_ids(processed_ids_path, processed_ids)
-            print(f"INFO: Wrote {len(chunks)} chunks -> {output_path}")
 
-        except Exception as exc:
-            print(f"ERROR: Failed to process {pdf_path}: {exc}")
+            logger.info("Wrote chunks -> %s", output_path)
+            logger.info("Marked as processed: %s", pdf_path.name)
+
+        except Exception:
+            logger.exception("Failed to process %s", pdf_path)
 
 
 if __name__ == "__main__":

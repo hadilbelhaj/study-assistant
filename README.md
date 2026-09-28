@@ -1,122 +1,175 @@
 # RAG Study Assistant
 
-A grounded RAG chatbot for revising course material: French-heavy PDFs
-in, cited answers out, refusing to guess when the material doesn't
-cover the question. This repo currently implements **Phase 1 (MVP)**
-of the full roadmap — one course, local, single script — with a
-folder layout that won't need restructuring as later phases land.
+A grounded **Retrieval-Augmented Generation (RAG)** study assistant for university course material.
 
-## Why this structure
+The system ingests course PDFs, retrieves relevant content, reranks the candidates, and uses an LLM to generate answers grounded in the available material.
 
-- `src/` holds one module per pipeline stage (`ingest → embed → index
-  → retrieve → generate`), tied together by `rag.py`. No repository/
-  service/interface layers — each file does one job directly, so the
-  diff for "swap FAISS for Qdrant" or "swap Anthropic for Ollama"
-  stays inside one file.
-- `config.yaml` centralizes the things you'll actually tune (model
-  names, chunk size, thresholds) so tuning never means hunting through
-  code.
-- `data/raw|processed|vectorstore` are gitignored — course PDFs are
-  almost certainly your professors' copyrighted material, and neither
-  they nor the derived index belong in a public repo. Only the folder
-  structure (`.gitkeep`) is tracked.
-- `eval/` and the metadata fields in every chunk (`course`, `lecture`,
-  `doc_type`, `language`, `page`) exist from day one even though
-  Phases 2-4 are what actually use them — retrofitting metadata onto
-  chunks you've already embedded is much more painful than including
-  it from the first script.
+Current documents are primarily **French**, with support for **English** content. The knowledge base is being expanded to support multiple courses, semesters, and study years.
 
+---
+
+## Architecture
+
+```text
+Course PDFs
+    │
+    ▼
+Docling extraction
+    │
+    ▼
+Chunking + metadata validation
+    │
+    ▼
+Embeddings + BM25
+    │
+    ├── Dense retrieval (FAISS)
+    └── Sparse retrieval (BM25)
+              │
+              ▼
+        RRF fusion
+              │
+              ▼
+   Qwen3-Reranker-0.6B
+              │
+              ▼
+        Top relevant chunks
+              │
+              ▼
+        LLM generation
+              │
+              ▼
+     Grounded answer + sources
 ```
+
+---
+
+## Current Status
+
+The project has progressed beyond the initial MVP and currently includes:
+
+* PDF extraction with **Docling**
+* Token-aware chunking with `RecursiveCharacterTextSplitter`
+* Pydantic-based chunk validation
+* Automatic **French/English language detection**
+* Metadata for course, study year, semester, lecture, document type, source, and page
+* Incremental ingestion using **SHA-256 document IDs**
+* Dense retrieval with **Qwen3-Embedding-0.6B + FAISS**
+* Sparse retrieval with **BM25**
+* **Reciprocal Rank Fusion (RRF)**
+* **Qwen3-Reranker-0.6B** cross-encoder reranking
+* Centralized configuration through `config.yaml`
+* Separation between retrieval logic and the current local storage implementation
+* Persistent loading of embedding and reranking models within the application process
+* Local LLM generation through **Ollama + Qwen2.5-7B**
+
+The reranker has been tested on the course corpus and improves the relevance of the retrieved context compared with the pre-reranking results.
+
+---
+
+## Repository Structure
+
+```text
 rag-study-assistant/
-├── config.yaml            # model names, chunk size, paths, thresholds
-├── requirements.txt        # Phase 1 — pinned, installable now
-├── requirements-later.txt  # Phase 2-5 — reference only, not installed
+├── config.yaml
 ├── data/
-│   ├── raw/<course>/       # your PDFs, gitignored
-│   ├── processed/<course>/ # chunked JSONL, gitignored
-│   └── vectorstore/        # FAISS index + metadata, gitignored
+│   ├── raw/              # Source PDFs (gitignored)
+│   └── processed/        # Validated chunks (gitignored)
+├── evaluation/           # Retrieval evaluation dataset
 ├── src/
-│   ├── ingest.py           # extract (Docling) + chunk + tag metadata
-│   ├── embed.py            # embedding model wrapper
-│   ├── index.py            # FAISS build/save/load
-│   ├── retrieve.py         # query -> top-k chunks (+ metadata filter)
-│   ├── generate.py         # grounded prompt template + LLM call
-│   └── rag.py              # rag_query() — what everything else calls
-├── scripts/run_cli.py       # Phase 1 interface: plain CLI loop
-├── notebooks/00_explore.ipynb
-├── tests/                  # pytest — chunking logic tested without docling
-└── eval/                   # Phase 4 question/answer sets, per course
+│   ├── config.py
+│   ├── schemas.py
+│   ├── ingest.py
+│   ├── language.py
+│   ├── embed.py
+│   ├── sparse.py
+│   ├── storage.py
+│   ├── retrieve.py
+│   ├── reranker.py
+│   └── generate.py
+├── tests/
+└── notebooks/
 ```
 
-## Library choices (checked against Aug 2026 benchmarks)
+Each module has a focused responsibility, while avoiding unnecessary abstraction for the current project scale.
 
-| Stage | Pick | Why |
-|---|---|---|
-| PDF extraction | **Docling** | Handles born-digital text, reading order, tables, *and* scanned pages (built-in OCR) in one call — replaces the old pdfplumber+PyMuPDF+separate-OCR combo. MIT licensed. Good current fit for slide decks with tables/diagrams; still spot-check formula-heavy chunks by hand. |
-| Chunking | **`langchain-text-splitters`** | Just the splitter, not the full `langchain` framework — same `RecursiveCharacterTextSplitter` the roadmap specifies, without the extra dependency weight. |
-| Embedding | **`Qwen/Qwen3-Embedding-0.6B`** (or `BAAI/bge-m3`) | Qwen3-Embedding currently tops the open-weight multilingual leaderboards at a size that runs comfortably on a laptop CPU, Apache-2.0. BGE-M3 is the alternative if you want native dense+sparse+multi-vector output in one model for Phase 2's hybrid search — worth a head-to-head on your own course corpus, similar to how you approached [[french-embeddings-benchmark]]. Set your pick in `config.yaml`. |
-| Vector store | **FAISS** (`IndexFlatL2`) → Chroma (Phase 3) → Qdrant (Phase 5) | Matches the roadmap's own progression; still the current-consensus path for local-prototype-to-light-production scale in 2026. |
-| Generation | **Anthropic API** | Swappable in `generate.py` alone; nothing else in the pipeline depends on the provider. |
+---
 
-**One thing the dry-run install caught:** `sentence-transformers` and
-`docling` both pull in full GPU-enabled PyTorch by default, which
-means several GB of CUDA packages even on a CPU-only laptop. If you
-don't have a GPU, install the CPU wheel first:
-```bash
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements.txt
+## Chunk Schema
+
+Chunks contain the information required for retrieval, filtering, and source tracing:
+
+```json
+{
+  "id": "...",
+  "document_id": "...",
+  "text": "...",
+  "course": "java",
+  "study_year": "1dni",
+  "semester": "S2",
+  "lecture": "Chapitre 5 - Les exceptions",
+  "doc_type": "lecture",
+  "language": "fr",
+  "source_file": "lecture5-les-exceptions.pdf",
+  "page": 27,
+  "chunk_index": 8
+}
 ```
 
-**License note for later:** if you ever add PyMuPDF as a faster
-fallback for clean digital PDFs, know that it's AGPL-3.0 — fine for
-local personal use, but AGPL's network-use clause applies once Phase
-5's classmate-facing app is a running service. Docling alone avoids
-this question entirely.
+Language is detected from the extracted document content rather than being encoded in the directory structure.
 
-## Setup
+---
 
-```bash
-git clone <your-repo-url>
-cd rag-study-assistant
+## Configuration
 
-python3 -m venv .venv
-source .venv/bin/activate        # Windows powershell: .\.venv\Scripts\Activate.ps1
+Models and tunable parameters are centralized in `config.yaml`.
 
-# CPU-only machine? Run this first (see note above):
-pip install torch --index-url https://download.pytorch.org/whl/cpu
+```yaml
+embedding:
+  model: "Qwen/Qwen3-Embedding-0.6B"
 
-pip install -r requirements.txt
+generation:
+  provider: "ollama"
+  model: "qwen2.5:7b"
 
-cp .env.example .env             # then paste your real ANTHROPIC_API_KEY in
+retrieval:
+  top_k: 5
+  candidate_k: 20
+  rrf_k: 60
+
+reranker:
+  model: "Qwen/Qwen3-Reranker-0.6B"
 ```
 
-## Usage
+This allows model and retrieval experiments without modifying the core pipeline.
 
-```bash
-# 1. Ingest one course's PDFs (repeat per lecture)
-python -m src.ingest data/raw/reseaux/ch3.pdf --course "Reseaux" --lecture "Chapitre 3" --doc-type lecture
+---
 
-# 2. Build the FAISS index from everything ingested so far
-python -c "from src.index import build_index, load_chunks_from_jsonl; build_index(load_chunks_from_jsonl('data/processed'))"
+## Evaluation
 
-# 3. Ask questions
-python scripts/run_cli.py
-```
-Or open `notebooks/00_explore.ipynb` for the same loop interactively.
+A retrieval evaluation dataset is being introduced to measure improvements objectively rather than relying only on manual inspection.
 
-## Dev
+Planned comparisons:
 
-```bash
-pytest              # tests/test_ingest.py runs without needing docling installed
-ruff check .         # lint
-ruff format .        # format
+```text
+Dense
+Dense + BM25
+Dense + BM25 + RRF
+Dense + BM25 + RRF + Reranking
 ```
 
-## Roadmap
+Initial metrics:
 
-This README covers Phase 1 only. See the full plan for Phases 2-5
-(hybrid search + reranking, multi-course scale, exam/key-point/
-synthesis modes, and the classmate-facing deployment) — 
-`requirements-later.txt` tracks the library choices for those phases
-as they get checked against benchmarks, but nothing there installs
-until you're actually on that phase.
+* Recall@K
+* MRR
+
+---
+## Design Principles
+
+* **Grounded generation:** answers should rely on retrieved course material.
+* **Hybrid retrieval:** combine semantic and lexical search.
+* **Reranking:** use a stronger cross-encoder before generation.
+* **Reproducibility:** deterministic document/chunk identities where appropriate.
+* **Configuration over hardcoding:** models and tunable parameters live in `config.yaml`.
+* **Incremental complexity:** introduce infrastructure only when the project requires it.
+
+Course PDFs and generated indexes are kept out of version control because they are derived/local data and may contain copyrighted teaching material.
