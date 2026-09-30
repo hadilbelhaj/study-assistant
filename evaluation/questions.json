@@ -1,0 +1,299 @@
+[
+  {
+    "id": "q001",
+    "question": "Salut ! Est-ce que quelqu'un peut m'expliquer la différence exacte entre une transmission synchrone et asynchrone ? Je m'embrouille un peu avec l'histoire d'horloge partagée.",
+    "course": "communication_numerique",
+    "study_year": "1dni",
+    "semester": "S1",
+    "relevant_chunk_ids": []
+  },
+  {
+    "id": "q002",
+    "question": "SVP dans le cours du prof Rejeb, c'est quoi le rôle du théorème de Shannon pour l'échantillonnage ? J'ai pas bien compris pourquoi Fe doit être >= 2*Fmax.",
+    "course": "communication_numerique",
+    "study_year": "1dni",
+    "semester": "S1",
+    "relevant_chunk_ids": [
+      "d4492ad8-0396-53e7-9eed-485ea0065c0e"
+    ]
+  },
+  {
+      "id": "q003",
+      "question": "Salut ! Quelqu'un peut m'expliquer la différence entre une paire torsadée UTP, FTP et STP d'après le cours du prof Rejeb, et quels sont ses facteurs de caractérisation ?",
+      "course": "communication-numerique",
+      "study_year": "1dni",
+      "semester": "S1",
+      "relevant_chunk_ids": [
+        "5ed36263-2039-52e3-a831-224f490a7aac"
+      ]
+    },
+    {
+      "id": "q004",
+      "question": "SVP dans la partie sur les câbles coaxiaux, c'est quoi les principaux avantages et inconvénients cités dans le support de cours ?",
+      "course": "communication-numerique",
+      "study_year": "1dni",
+      "semester": "S1",
+      "relevant_chunk_ids": [
+        "ba462fde-3069-5fe8-b847-c33a443e9fa0",
+        "d9d346c9-11de-5c9a-bcc2-d711704f5947"
+      ]
+    },
+    {
+      "id": "q005",
+      "question": "Bonjour, c'est quoi l'intérêt de la bande de garde dans le multiplexage fréquentiel (FDM) selon le cours ?",
+      "course": "communication-numerique",
+      "study_year": "1dni",
+      "semester": "S1",
+      "relevant_chunk_ids": [
+        "fa4b70ad-393f-5add-988c-16b979468cdb"
+      ]
+    },
+    {
+      "id": "q006",
+      "question": "J'ai du mal avec la trame MIC : à quoi servent exactement l'IT 0 et l'IT 16 selon la présentation ?",
+      "course": "communication-numerique",
+      "study_year": "1dni",
+      "semester": "S1",
+      "relevant_chunk_ids": [
+        "9afc1d1f-1d8f-507b-8133-4a5527cce3e5"
+      ]
+    },
+    {
+      "id": "q007",
+      "question": "Est-ce que quelqu'un peut me rappeler les différences de temps de transmission Terre-satellite et d'altitude entre GEO, MEO et LEO dans le tableau du cours ?",
+      "course": "communication-numerique",
+      "study_year": "1dni",
+      "semester": "S1",
+      "relevant_chunk_ids": [
+        "91fec893-145a-5091-964d-2fc08fc1dd3b"
+      ]
+    },
+    {
+        "id": "q008",
+        "question": "Salut ! Quelle est la différence exacte entre une classe et un objet, et de quelles parties principales est composée une classe en Java[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "926bf1e2-68b8-5f6a-9cf5-6634c8fdc57d"
+        ]
+      },
+      {
+        "id": "q009 ",
+        "question": "SVP, pourquoi utilise-t-on les packages en Java et comment définir un package avec des sous-dossiers[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "f6386f12-45a2-55b6-97be-4d93ce99db34",
+          "1820f0ce-6ffe-5078-a459-2a70cf7b0ab0"
+        ]
+      },
+      {
+        "id": "q010",
+        "question": "Quels sont les modificateurs d'accessibilité en Java et quelles sont les règles recommandées pour bien respecter l'encapsulation des données[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "786f6c89-868c-58f6-baa4-2b8b9066e096",
+          "d4f3bc59-ef0b-5d9b-abe7-40ed7f38b757"
+        ]
+      },
+      {
+        "id": "q011",
+        "question": "Est-ce que quelqu'un peut m'expliquer ce qu'est un constructeur, et que se passe-t-il si le programmeur ne crée aucun constructeur explicitement dans sa classe[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "423236c7-6548-52a8-99a5-c637b0ae0c74",
+          "585ee786-3228-5301-81d6-734f80e6a27b"
+        ]
+      },
+      {
+        "id": "q012",
+        "question": "Bonjour, c'est quoi la différence entre un attribut de classe (static) et un attribut d'instance, et est-ce qu'on a le droit d'utiliser 'this' dans une méthode statique[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "b4f14405-a94f-5a01-becb-ef56ad813265",
+          "2554401d-0efd-5299-bdf1-6589a977f71c"
+        ]
+      },
+      {
+        "id": "q013",
+        "question": "Comment utiliser la classe Scanner pour lire ce qui est tapé au clavier, et quelle est la méthode exacte pour lire toute une ligne de texte (String)[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "f1fc1a25-a0dd-5199-8ef9-a36b7a56fb3c"
+        ]
+      },
+      {
+        "id": "q014",
+        "question": "J'ai du mal avec la classe String : pourquoi dit-on qu'elle est 'immuable', et quelle est la différence de résultat entre déclarer deux String avec des guillemets et forcer la création avec 'new String()'[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "113a4383-80d5-54e7-8590-63f79a730832"
+        ]
+      },
+      {
+        "id": "q015",
+        "question": "Salut ! Quelle est la différence exacte entre une classe et un objet, et de quelles parties principales est composée une classe en Java[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "926bf1e2-68b8-5f6a-9cf5-6634c8fdc57d"
+        ]
+      },
+      {
+        "id": "q016",
+        "question": "SVP, pourquoi utilise-t-on les packages en Java et comment définir un package avec des sous-dossiers[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "f6386f12-45a2-55b6-97be-4d93ce99db34",
+          "1820f0ce-6ffe-5078-a459-2a70cf7b0ab0"
+        ]
+      },
+      {
+        "id": "q017",
+        "question": "Quels sont les modificateurs d'accessibilité en Java et quelles sont les règles recommandées pour bien respecter l'encapsulation des données[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "786f6c89-868c-58f6-baa4-2b8b9066e096",
+          "d4f3bc59-ef0b-5d9b-abe7-40ed7f38b757"
+        ]
+      },
+      {
+        "id": "q018",
+        "question": "Est-ce que quelqu'un peut m'expliquer ce qu'est un constructeur, et que se passe-t-il si le programmeur ne crée aucun constructeur explicitement dans sa classe[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "423236c7-6548-52a8-99a5-c637b0ae0c74",
+          "585ee786-3228-5301-81d6-734f80e6a27b"
+        ]
+      },
+      {
+        "id": "q019",
+        "question": "Bonjour, c'est quoi la différence entre un attribut de classe (static) et un attribut d'instance, et est-ce qu'on a le droit d'utiliser 'this' dans une méthode statique[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "b4f14405-a94f-5a01-becb-ef56ad813265",
+          "2554401d-0efd-5299-bdf1-6589a977f71c"
+        ]
+      },
+      {
+        "id": "q020",
+        "question": "Comment utiliser la classe Scanner pour lire ce qui est tapé au clavier, et quelle est la méthode exacte pour lire toute une ligne de texte (String)[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "f1fc1a25-a0dd-5199-8ef9-a36b7a56fb3c"
+        ]
+      },
+      {
+        "id": "q021",
+        "question": "J'ai du mal avec la classe String : pourquoi dit-on qu'elle est 'immuable', et quelle est la différence de résultat entre déclarer deux String avec des guillemets et forcer la création avec 'new String()'[cite: 1] ?",
+        "course": "java",
+        "study_year": "1dni",
+        "semester": "S1",
+        "relevant_chunk_ids": [
+          "113a4383-80d5-54e7-8590-63f79a730832"
+        ]
+      },
+      {
+          "id": "q022",
+          "question": "Quels sont les deux types de transfert DMA et quelles sont leurs caractéristiques principales ?",
+          "course": "microprocesseur",
+          "study_year": "1dni",
+          "semester": "S1",
+          "relevant_chunk_ids": [
+            "21a34147-736e-554b-b2d3-630c1f52f897"
+          ]
+        },
+        {
+          "id": "q023",
+          "question": "Comment fonctionne le mécanisme d'interruption matérielle dans la gestion des entrées/sorties par rapport au mode d'interrogation (polling) ?",
+          "course": "microprocesseur",
+          "study_year": "1dni",
+          "semester": "S1",
+          "relevant_chunk_ids": [
+            "e3a9812f-4b0c-5211-8f3a-99d81726a110"
+          ]
+        },
+        {
+            "id": "q024",
+            "question": "Quelles sont les différences majeures entre le mode Ad hoc (IBSS) et le mode Infrastructure (BSS) dans un réseau sans fil IEEE 802.11 ?",
+            "course": "reseaux-sans-fils",
+            "study_year": "1dni",
+            "semester": "S2",
+            "relevant_chunk_ids": [
+              "23d0973201a47bb2051b38dce4abc7a1f00bfd7034dcb26680c576633fd74032"
+            ]
+          },
+          {
+            "id": "q025",
+            "question": "Qu'est-ce que le problème du « nœud caché » dans les transmissions radio et quel mécanisme permet d'y remédier ?",
+            "course": "reseaux-sans-fils",
+            "study_year": "1dni",
+            "semester": "S2",
+            "relevant_chunk_ids": [
+              "23d0973201a47bb2051b38dce4abc7a1f00bfd7034dcb26680c576633fd74032"
+            ]
+          },
+          {
+            "id": "q026",
+            "question": "Comment la technique de transmission multi-porteuse OFDM permet-elle de réduire les interférences inter-symboles (ISI) tout en maintenant un débit élevé ?",
+            "course": "reseaux-sans-fils",
+            "study_year": "1dni",
+            "semester": "S2",
+            "relevant_chunk_ids": [
+              "23d0973201a47bb2051b38dce4abc7a1f00bfd7034dcb26680c576633fd74032"
+            ]
+          },
+          {
+              "id": "q027",
+              "question": "Quelle est la structure générale d'une feuille de style XSLT (prologue, corps, épilogue) et comment définit-on un gabarit (template) principal avec l'élément <xsl:template match=\"/\"> ?",
+              "course": "xml",
+              "study_year": "1dni",
+              "semester": "S2",
+              "relevant_chunk_ids": [
+                "33a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef"
+              ]
+            },
+            {
+              "id": "q028",
+              "question": "Quelle est la différence fondamentale entre l'instruction <xsl:value-of select=\"...\"/> et l'instruction <xsl:apply-templates select=\"...\"/> lors du traitement des nœuds dans XSLT ?",
+              "course": "xml",
+              "study_year": "1dni",
+              "semester": "S2",
+              "relevant_chunk_ids": [
+                "33a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef"
+              ]
+            },
+            {
+              "id": "q029",
+              "question": "Comment réaliser des structures conditionnelles en XSLT en utilisant les instructions <xsl:if> et <xsl:choose> / <xsl:when> / <xsl:otherwise> ?",
+              "course": "xml",
+              "study_year": "1dni",
+              "semester": "S2",
+              "relevant_chunk_ids": [
+                "33a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef"
+              ]
+            }
+]
