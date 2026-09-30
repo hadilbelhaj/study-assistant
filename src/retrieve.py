@@ -30,19 +30,25 @@ def reciprocal_rank_fusion(result_lists: list[list[dict]], rrf_k: int) -> list[d
     return [{**documents[chunk_id], "rrf_score": scores[chunk_id]} for chunk_id in ranked_ids]
 
 
-def retrieve(query: str, name: str = "index", k: int | None = None, metadata_filter: dict | None = None) -> list[dict]:
+def retrieve_stages(query: str, name: str = "index", max_k: int | None = None, metadata_filter: dict | None = None) -> dict[str, list[dict]]:
     config = get_config()
-    top_k = k if k is not None else config.retrieval.top_k
+    top_k = max_k if max_k is not None else config.retrieval.top_k
     candidate_k = config.retrieval.candidate_k
     rrf_k = config.retrieval.rrf_k
 
     store = LocalStore(name)
     store.load()
 
-    dense_results = retrieve_dense(query=query, store=store, k=candidate_k, metadata_filter=metadata_filter)
-    sparse_results = retrieve_sparse(query=query, store=store, k=candidate_k, metadata_filter=metadata_filter)
+    dense_results = retrieve_dense(query=query, store=store, k=max(candidate_k, top_k), metadata_filter=metadata_filter)
+    sparse_results = retrieve_sparse(query=query, store=store, k=max(candidate_k, top_k), metadata_filter=metadata_filter)
 
     fused_results = reciprocal_rank_fusion([dense_results, sparse_results], rrf_k=rrf_k)
-    candidates = fused_results[:candidate_k]
+    fused_candidates = fused_results[:candidate_k]
 
-    return rerank(query=query, chunks=candidates, top_k=top_k)
+    reranked_results = rerank(query=query, chunks=fused_candidates, top_k=top_k)
+
+    return {"dense": dense_results[:top_k],"sparse": sparse_results[:top_k],"rrf": fused_results[:top_k],"reranked": reranked_results,}
+
+
+def retrieve(query: str, name: str = "index", k: int | None = None, metadata_filter: dict | None = None) -> list[dict]:
+    return retrieve_stages(query=query, name=name, max_k=k, metadata_filter=metadata_filter)["reranked"]

@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
 
-from src.retrieve import retrieve
+from src.retrieve import retrieve_stages
 
 K_VALUES = [1, 3, 5, 10]
+METHODS = ["dense", "sparse", "rrf", "reranked"]
 
 
 def load_questions(path: Path) -> list[dict]:
@@ -11,17 +12,13 @@ def load_questions(path: Path) -> list[dict]:
         return json.load(file)
 
 
-def evaluate_question(question: dict, max_k: int = 10) -> dict:
-    results = retrieve(query=question["question"], k=max_k)
-    relevant_ids = set(question["relevant_chunk_ids"])
-    ranked_ids = [result["id"] for result in results]
-
+def calculate_metrics(ranked_results: list[dict], relevant_ids: set[str]) -> dict:
+    ranked_ids = [result["id"] for result in ranked_results]
     ranks = {chunk_id: rank for rank, chunk_id in enumerate(ranked_ids, start=1)}
     relevant_ranks = [ranks[chunk_id] for chunk_id in relevant_ids if chunk_id in ranks]
     first_relevant_rank = min(relevant_ranks) if relevant_ranks else None
 
     metrics = {
-        "id": question["id"],
         "first_relevant_rank": first_relevant_rank,
         "mrr": 1 / first_relevant_rank if first_relevant_rank else 0.0,
     }
@@ -35,37 +32,78 @@ def evaluate_question(question: dict, max_k: int = 10) -> dict:
     return metrics
 
 
+def evaluate_question(question: dict) -> dict:
+    stages = retrieve_stages(query=question["question"], max_k=max(K_VALUES))
+    relevant_ids = set(question["relevant_chunk_ids"])
+
+    return {
+        "id": question["id"],
+        "question": question["question"],
+        "metrics": {method: calculate_metrics(stages[method], relevant_ids) for method in METHODS},
+    }
+
+
+def average_metric(results: list[dict], method: str, metric: str) -> float:
+    return sum(result["metrics"][method][metric] for result in results) / len(results)
+
+
+def print_summary(results: list[dict]) -> None:
+    print(f"\nEvaluated {len(results)} questions\n")
+
+    header = (
+        f"{'Method':<12}"
+        f"{'Hit@1':>10}"
+        f"{'Recall@1':>10}"
+        f"{'Hit@3':>10}"
+        f"{'Recall@3':>10}"
+        f"{'Hit@5':>10}"
+        f"{'Recall@5':>10}"
+        f"{'Hit@10':>10}"
+        f"{'Recall@10':>10}"
+        f"{'MRR':>10}"
+    )
+
+    print(header)
+    print("-" * len(header))
+
+    for method in METHODS:
+        print(
+            f"{method:<12}"
+            f"{average_metric(results, method, 'hit@1'):>10.3f}"
+            f"{average_metric(results, method, 'recall@1'):>10.3f}"
+            f"{average_metric(results, method, 'hit@3'):>10.3f}"
+            f"{average_metric(results, method, 'recall@3'):>10.3f}"
+            f"{average_metric(results, method, 'hit@5'):>10.3f}"
+            f"{average_metric(results, method, 'recall@5'):>10.3f}"
+            f"{average_metric(results, method, 'hit@10'):>10.3f}"
+            f"{average_metric(results, method, 'recall@10'):>10.3f}"
+            f"{average_metric(results, method, 'mrr'):>10.3f}"
+        )
+
+
+def print_failures(results: list[dict]) -> None:
+    print("\nQUESTIONS WHERE FINAL RERANKED RETRIEVAL MISSED ALL RELEVANT CHUNKS")
+    print("=" * 80)
+
+    for result in results:
+        metrics = result["metrics"]["reranked"]
+        if metrics["hit@10"] == 0:
+            print(f"\n{result['id']}: {result['question']}")
+            for method in METHODS:
+                method_metrics = result["metrics"][method]
+                print(
+                    f"  {method:<10} "
+                    f"first_rank={method_metrics['first_relevant_rank']}, "
+                    f"Recall@10={method_metrics['recall@10']:.3f}"
+                )
+
+
 def main() -> None:
     questions = load_questions(Path("evaluation/questions.json"))
     results = [evaluate_question(question) for question in questions]
 
-    print(f"Evaluated {len(results)} questions\n")
-
-    for question, result in zip(questions, results):
-        print(f"{'=' * 80}")
-        print(f"{result['id']}: {question['question']}")
-        print(f"First relevant rank: {result['first_relevant_rank']}")
-        print(f"Hit@1: {result['hit@1']}")
-        print(f"Hit@3: {result['hit@3']}")
-        print(f"Hit@5: {result['hit@5']}")
-        print(f"Hit@10: {result['hit@10']}")
-        print(f"Recall@1: {result['recall@1']:.3f}")
-        print(f"Recall@3: {result['recall@3']:.3f}")
-        print(f"Recall@5: {result['recall@5']:.3f}")
-        print(f"Recall@10: {result['recall@10']:.3f}")
-        print(f"MRR: {result['mrr']:.3f}")
-
-    print(f"\n{'=' * 80}")
-    print("OVERALL RESULTS")
-
-    for k in K_VALUES:
-        hit = sum(result[f"hit@{k}"] for result in results) / len(results)
-        recall = sum(result[f"recall@{k}"] for result in results) / len(results)
-        print(f"Hit@{k}:    {hit:.3f}")
-        print(f"Recall@{k}: {recall:.3f}")
-
-    mrr = sum(result["mrr"] for result in results) / len(results)
-    print(f"MRR:        {mrr:.3f}")
+    print_summary(results)
+    print_failures(results)
 
 
 if __name__ == "__main__":
