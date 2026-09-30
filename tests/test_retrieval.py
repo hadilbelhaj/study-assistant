@@ -1,53 +1,96 @@
-from src.index import load_index
-from src.retrieve import retrieve_dense, retrieve_sparse
-from src.retrieve import reciprocal_rank_fusion
+import numpy as np
+
+from src import retrieve as retrieval
 
 
-index, chunks, bm25 = load_index()
+def make_chunk(chunk_id: str) -> dict:
+    return {"id": chunk_id, "text": f"text for {chunk_id}"}
 
-query = "Quelles sont les principales collections en Java ?"
 
-dense_results = retrieve_dense(
-    query,
-    index,
-    chunks,
-    k=20,
-)
+def test_reciprocal_rank_fusion_ranks_shared_documents_higher():
+    results_a = [
+        make_chunk("A"),
+        make_chunk("B"),
+        make_chunk("C"),
+    ]
+    results_b = [
+        make_chunk("B"),
+        make_chunk("C"),
+        make_chunk("D"),
+    ]
 
-sparse_results = retrieve_sparse(
-    query,
-    bm25,
-    chunks,
-    k=20,
-)
-
-fused_results = reciprocal_rank_fusion(
-    [dense_results, sparse_results]
-)
-
-print("\n===== DENSE =====")
-for rank, result in enumerate(dense_results[:10], start=1):
-    print(
-        rank,
-        result["id"],
-        result.get("dense_score"),
-        result["text"][:100].replace("\n", " ")
+    fused = retrieval.reciprocal_rank_fusion(
+        [results_a, results_b],
+        rrf_k=60,
     )
 
-print("\n===== SPARSE =====")
-for rank, result in enumerate(sparse_results[:10], start=1):
-    print(
-        rank,
-        result["id"],
-        result.get("sparse_score"),
-        result["text"][:100].replace("\n", " ")
+    ranked_ids = [result["id"] for result in fused]
+
+    assert ranked_ids[0] == "B"
+    assert set(ranked_ids) == {"A", "B", "C", "D"}
+
+
+def test_reciprocal_rank_fusion_keeps_all_documents():
+    results_a = [make_chunk("A"), make_chunk("B")]
+    results_b = [make_chunk("C"), make_chunk("D")]
+
+    fused = retrieval.reciprocal_rank_fusion(
+        [results_a, results_b],
+        rrf_k=60,
     )
 
-print("\n===== RRF =====")
-for rank, result in enumerate(fused_results[:10], start=1):
-    print(
-        rank,
-        result["id"],
-        result["rrf_score"],
-        result["text"][:100].replace("\n", " ")
+    ranked_ids = [result["id"] for result in fused]
+
+    assert len(ranked_ids) == 4
+    assert set(ranked_ids) == {"A", "B", "C", "D"}
+
+
+def test_retrieve_uses_candidate_k_and_reranks(monkeypatch):
+    config = type(
+        "Config",
+        (),
+        {
+            "retrieval": type(
+                "RetrievalConfig",
+                (),
+                {"top_k": 5, "candidate_k": 20, "rrf_k": 60},
+            )()
+        },
+    )()
+
+    monkeypatch.setattr(retrieval, "get_config", lambda: config)
+
+    class FakeStore:
+        def __init__(self, name: str):
+            self.name = name
+
+        def load(self):
+            pass
+
+        def search_dense(self, query_vector, k, metadata_filter=None):
+            assert k == 20
+            return [make_chunk("A"), make_chunk("B")]
+
+        def search_sparse(self, query, k, metadata_filter=None):
+            assert k == 20
+            return [make_chunk("B"), make_chunk("C")]
+
+    monkeypatch.setattr(retrieval, "LocalStore", FakeStore)
+    monkeypatch.setattr(
+        retrieval,
+        "embed_query",
+        lambda query: np.array([0.1, 0.2, 0.3], dtype="float32"),
     )
+
+    def fake_rerank(query, chunks, top_k):
+        assert query == "test query"
+        assert top_k == 5
+        assert len(chunks) == 3
+        return chunks[:top_k]
+
+    monkeypatch.setattr(retrieval, "rerank", fake_rerank)
+
+    results = retrieval.retrieve("test query")
+
+    assert len(results) == 3
+    assert all("id" in result for result in results)
