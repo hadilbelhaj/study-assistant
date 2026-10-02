@@ -1,10 +1,27 @@
+from functools import lru_cache
 import pickle
 import re
 from pathlib import Path
-
+import json
+from config import get_config
 from rank_bm25 import BM25Okapi
 
 
+
+
+@lru_cache(maxsize=1)
+def get_bm25_resources():
+    config = get_config()
+    bm25_path = config.paths.vectorstore_dir / "index.bm25.pkl"
+    bm25 = load_sparse_index(bm25_path)
+
+    chunks = []
+    for path in sorted(Path(config.paths.processed_dir).rglob("*.jsonl")):
+        with path.open(encoding="utf-8") as file:
+            chunks.extend(json.loads(line) for line in file)
+
+    return bm25, chunks
+    
 def tokenize(text: str) -> list[str]:
     return re.findall(r"\b\w+\b", text.lower())
 
