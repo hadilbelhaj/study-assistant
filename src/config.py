@@ -31,7 +31,6 @@ class PathsConfig(BaseModel):
 
     raw_dir: Path
     processed_dir: Path
-    vectorstore_dir: Path
 
 
 class RetrievalConfig(BaseModel):

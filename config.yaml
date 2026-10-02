@@ -25,16 +25,10 @@ chunking:
 paths:
   raw_dir: "data/raw"
   processed_dir: "data/processed"
-  vectorstore_dir: "data/vectorstore"
 
 retrieval:
   top_k: 5
   candidate_k: 20
-  rrf_k: 60
-
-  # Planned for a later retrieval-confidence step.
-  # Do not use this yet until calibrated on your evaluation dataset.
-  min_similarity_threshold: 0.35
 
 reranker:
   model: "Qwen/Qwen3-Reranker-0.6B"
