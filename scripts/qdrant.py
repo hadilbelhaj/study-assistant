@@ -1,44 +1,19 @@
-from src.qdrant_storage import search_chunks
-
-
-def print_results(title: str, results: list) -> None:
-    print(f"\n{title}")
-    print("=" * 60)
-
-    for rank, result in enumerate(results, start=1):
-        print(f"\nRank {rank}")
-        print(f"Score: {result.score:.4f}")
-        print(f"ID: {result.id}")
-        print(f"Course: {result.payload.get('course')}")
-        print(f"Semester: {result.payload.get('semester')}")
-        print(f"Section: {result.payload.get('section')}")
-        print(f"Text: {result.payload.get('text', '')[:250]}")
+from src.config import get_config
+from src.qdrant_storage import create_collection
 
 
 def main() -> None:
-    query = "Quels sont les principaux codes utilisés pour la transmission en bande de base ?"
+    config = get_config()
+    from src.qdrant_storage import get_qdrant_client
 
-    results = search_chunks(query=query, limit=3)
-    print_results("Without metadata filter", results)
+    client = get_qdrant_client()
 
-    filtered_results = search_chunks(
-        query=query,
-        limit=3,
-        metadata_filter={
-            "course": "communication-numerique",
-            "semester": "S1",
-        },
-    )
-    print_results("With course + semester filter", filtered_results)
+    if client.collection_exists(config.qdrant.collection):
+        client.delete_collection(config.qdrant.collection)
+        print(f"Deleted collection: {config.qdrant.collection}")
 
-    wrong_filter_results = search_chunks(
-        query=query,
-        limit=3,
-        metadata_filter={
-            "course": "java",
-        },
-    )
-    print_results("With wrong course filter", wrong_filter_results)
+    create_collection()
+    print(f"Created hybrid collection: {config.qdrant.collection}")
 
 
 if __name__ == "__main__":

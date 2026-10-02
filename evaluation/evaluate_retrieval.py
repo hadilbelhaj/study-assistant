@@ -3,8 +3,9 @@ from pathlib import Path
 
 from src.retrieve import retrieve_stages
 
+
 K_VALUES = [1, 3, 5, 10]
-METHODS = ["dense", "sparse", "rrf", "reranked"]
+METHODS = ["hybrid", "reranked"]
 
 
 def load_questions(path: Path) -> list[dict]:
@@ -13,7 +14,7 @@ def load_questions(path: Path) -> list[dict]:
 
 
 def calculate_metrics(ranked_results: list[dict], relevant_ids: set[str]) -> dict:
-    ranked_ids = [result["id"] for result in ranked_results]
+    ranked_ids = [str(result["id"]) for result in ranked_results]
     ranks = {chunk_id: rank for rank, chunk_id in enumerate(ranked_ids, start=1)}
     relevant_ranks = [ranks[chunk_id] for chunk_id in relevant_ids if chunk_id in ranks]
     first_relevant_rank = min(relevant_ranks) if relevant_ranks else None
@@ -33,13 +34,20 @@ def calculate_metrics(ranked_results: list[dict], relevant_ids: set[str]) -> dic
 
 
 def evaluate_question(question: dict) -> dict:
-    stages = retrieve_stages(query=question["question"], max_k=max(K_VALUES))
-    relevant_ids = set(question["relevant_chunk_ids"])
+    relevant_ids = {str(chunk_id) for chunk_id in question["relevant_chunk_ids"]}
+
+    stages = retrieve_stages(
+        query=question["question"],
+        k=max(K_VALUES),
+    )
 
     return {
         "id": question["id"],
         "question": question["question"],
-        "metrics": {method: calculate_metrics(stages[method], relevant_ids) for method in METHODS},
+        "metrics": {
+            method: calculate_metrics(stages[method], relevant_ids)
+            for method in METHODS
+        },
     }
 
 
@@ -48,8 +56,6 @@ def average_metric(results: list[dict], method: str, metric: str) -> float:
 
 
 def print_summary(results: list[dict]) -> None:
-    print(f"\nEvaluated {len(results)} questions\n")
-
     header = (
         f"{'Method':<12}"
         f"{'Hit@1':>10}"
@@ -63,6 +69,7 @@ def print_summary(results: list[dict]) -> None:
         f"{'MRR':>10}"
     )
 
+    print(f"\nEvaluated {len(results)} questions\n")
     print(header)
     print("-" * len(header))
 
@@ -82,18 +89,19 @@ def print_summary(results: list[dict]) -> None:
 
 
 def print_failures(results: list[dict]) -> None:
-    print("\nQUESTIONS WHERE FINAL RERANKED RETRIEVAL MISSED ALL RELEVANT CHUNKS")
+    print("\nQUESTIONS MISSED BY THE FINAL RERANKED PIPELINE")
     print("=" * 80)
 
     for result in results:
         metrics = result["metrics"]["reranked"]
+
         if metrics["hit@10"] == 0:
             print(f"\n{result['id']}: {result['question']}")
             for method in METHODS:
                 method_metrics = result["metrics"][method]
                 print(
-                    f"  {method:<10} "
-                    f"first_rank={method_metrics['first_relevant_rank']}, "
+                    f"  {method:<9} "
+                    f"rank={method_metrics['first_relevant_rank']}, "
                     f"Recall@10={method_metrics['recall@10']:.3f}"
                 )
 

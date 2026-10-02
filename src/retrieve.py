@@ -1,105 +1,34 @@
-"""Hybrid retrieval: dense + sparse + RRF + reranking."""
-
-import numpy as np
+"""Retrieval using Qdrant hybrid search and reranking."""
 
 from src.config import get_config
-from src.embed import embed_query
-from src.qdrant_storage import search_chunks
+from src.qdrant_storage import hybrid_search
 from src.reranker import rerank
-from src.sparse import get_bm25_resources, search_sparse
-from src.storage import LocalStore
 
 
-
-def retrieve_dense(query: str, store: LocalStore, k: int, metadata_filter: dict | None = None) -> list[dict]:
-    query_vector = np.asarray(embed_query(query), dtype="float32")
-    return store.search_dense(query_vector=query_vector, k=k, metadata_filter=metadata_filter)
-
-
-def retrieve_sparse(query: str, store: LocalStore, k: int, metadata_filter: dict | None = None) -> list[dict]:
-    return store.search_sparse(query=query, k=k, metadata_filter=metadata_filter)
-
-
-def reciprocal_rank_fusion(result_lists: list[list[dict]], rrf_k: int) -> list[dict]:
-    scores, documents = {}, {}
-
-    for results in result_lists:
-        for rank, result in enumerate(results, start=1):
-            chunk_id = result["id"]
-            scores[chunk_id] = scores.get(chunk_id, 0) + 1 / (rrf_k + rank)
-            documents[chunk_id] = result
-
-    ranked_ids = sorted(scores, key=scores.get, reverse=True)
-    return [{**documents[chunk_id], "rrf_score": scores[chunk_id]} for chunk_id in ranked_ids]
-
-
-def retrieve_stages(query: str, name: str = "index", max_k: int | None = None, metadata_filter: dict | None = None) -> dict[str, list[dict]]:
-    config = get_config()
-    top_k = max_k if max_k is not None else config.retrieval.top_k
-    candidate_k = config.retrieval.candidate_k
-    rrf_k = config.retrieval.rrf_k
-
-    store = LocalStore(name)
-    store.load()
-
-    dense_results = retrieve_dense(query=query, store=store, k=max(candidate_k, top_k), metadata_filter=metadata_filter)
-    sparse_results = retrieve_sparse(query=query, store=store, k=max(candidate_k, top_k), metadata_filter=metadata_filter)
-
-    fused_results = reciprocal_rank_fusion([dense_results, sparse_results], rrf_k=rrf_k)
-    fused_candidates = fused_results[:candidate_k]
-
-    reranked_results = rerank(query=query, chunks=fused_candidates, top_k=top_k)
-
-    return {"dense": dense_results[:top_k],"sparse": sparse_results[:top_k],"rrf": fused_results[:top_k],"reranked": reranked_results,}
-
-def retrieve_qdrant_stages(query: str, k: int | None = None, metadata_filter: dict | None = None) -> dict[str, list[dict]]:
+def retrieve_stages(query: str, k: int | None = None, metadata_filter: dict | None = None) -> dict[str, list[dict]]:
     config = get_config()
     top_k = k if k is not None else config.retrieval.top_k
     candidate_k = config.retrieval.candidate_k
-    rrf_k = config.retrieval.rrf_k
 
-    qdrant_results = search_chunks(query=query, limit=candidate_k, metadata_filter=metadata_filter)
+    hybrid_results = hybrid_search(
+        query=query,
+        limit=candidate_k,
+        candidate_k=candidate_k,
+        metadata_filter=metadata_filter,
+    )
 
-    dense_results = [
-        {**result.payload, "id": str(result.id), "dense_score": float(result.score)}
-        for result in qdrant_results
+    candidates = [
+        {**result.payload, "id": str(result.id), "hybrid_score": float(result.score)}
+        for result in hybrid_results
     ]
 
-    bm25, chunks = get_bm25_resources()
-
-    sparse_results = search_sparse(
-        bm25,
-        chunks,
-        query,
-        candidate_k,
-    )
-
-    if metadata_filter:
-        sparse_results = [
-            result
-            for result in sparse_results
-            if all(result.get(key) == value for key, value in metadata_filter.items())
-        ]
-
-    sparse_results = sparse_results[:candidate_k]
-
-    fused_results = reciprocal_rank_fusion(
-        [dense_results, sparse_results],
-        rrf_k=rrf_k,
-    )
-
-    reranked_results = rerank(
-        query=query,
-        chunks=fused_results[:candidate_k],
-        top_k=top_k,
-    )
+    reranked_results = rerank(query=query, chunks=candidates, top_k=top_k)
 
     return {
-        "dense": dense_results[:top_k],
-        "sparse": sparse_results[:top_k],
-        "rrf": fused_results[:top_k],
+        "hybrid": candidates[:top_k],
         "reranked": reranked_results,
     }
 
-def retrieve(query: str, name: str = "index", k: int | None = None, metadata_filter: dict | None = None) -> list[dict]:
-    return retrieve_stages(query=query, name=name, max_k=k, metadata_filter=metadata_filter)["reranked"]
+
+def retrieve(query: str, k: int | None = None, metadata_filter: dict | None = None) -> list[dict]:
+    return retrieve_stages(query=query, k=k, metadata_filter=metadata_filter)["reranked"]

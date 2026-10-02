@@ -259,27 +259,12 @@ using:
 * Recall@K
 * MRR
 
-### Current benchmark
+#Current retrieval benchmark (29 questions)
+- Qdrant hybrid: Hit@1 65.5%, MRR 69.0%
+- Qdrant hybrid + reranker: Hit@1 72.4%, MRR 72.4%
+- Previous FAISS + BM25 + RRF + reranker: Hit@1 72.4%, MRR 72.4%
 
-Current results on the 29-question evaluation set:
-
-| Method         |     Hit@1 |  Recall@1 |     Hit@3 |  Recall@3 |  Recall@5 | Recall@10 |       MRR |
-| -------------- | --------: | --------: | --------: | --------: | --------: | --------: | --------: |
-| Dense          |     0.690 |     0.534 |     0.724 |     0.724 |     0.724 |     0.724 |     0.707 |
-| BM25           |     0.690 |     0.534 |     0.724 |     0.672 |     0.707 |     0.707 |     0.701 |
-| RRF            |     0.690 |     0.534 |     0.724 |     0.707 |     0.724 |     0.724 |     0.707 |
-| RRF + Reranker | **0.724** | **0.569** | **0.724** | **0.724** | **0.724** | **0.724** | **0.724** |
-
-The current results show that:
-
-* Dense retrieval provides a strong baseline on the current dataset.
-* BM25 provides a useful lexical baseline but does not currently outperform dense retrieval.
-* RRF does not currently provide a measurable improvement over dense retrieval on this evaluation set.
-* The **Qwen3-Reranker-0.6B** produces a modest improvement in top-rank retrieval, increasing Hit@1 from **69.0% to 72.4%** and MRR from **70.7% to 72.4%**.
-
-These results are treated as a baseline for further investigation rather than as a final assessment of the architecture.
-
----
+The Qdrant migration preserves final retrieval performance on the current evaluation set.
 
 ## Testing
 
