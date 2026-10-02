@@ -3,6 +3,7 @@
 
 embedding:
   model: "Qwen/Qwen3-Embedding-0.6B"
+  dimension: 1024
   # Alternative:
   # model: "BAAI/bge-m3"
 
@@ -37,3 +38,6 @@ retrieval:
 
 reranker:
   model: "Qwen/Qwen3-Reranker-0.6B"
+qdrant:
+  url: "http://localhost:6333"
+  collection: "course_chunks"

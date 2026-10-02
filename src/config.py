@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class EmbeddingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     model: str
-
+    dimension: int = Field(gt=0)
 
 class GenerationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -48,6 +48,11 @@ class RerankerConfig(BaseModel):
 
     model: str
 
+class QdrantConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    url: str
+    collection: str
+
 
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -58,7 +63,7 @@ class AppConfig(BaseModel):
     paths: PathsConfig
     retrieval: RetrievalConfig
     reranker: RerankerConfig
-
+    qdrant: QdrantConfig
 
 @lru_cache(maxsize=1)
 def get_config() -> AppConfig:
