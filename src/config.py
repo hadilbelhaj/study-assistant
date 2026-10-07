@@ -35,11 +35,8 @@ class PathsConfig(BaseModel):
 
 class RetrievalConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     top_k: int = Field(gt=0)
     candidate_k: int = Field(gt=0)
-    rrf_k: int = Field(gt=0)
-    min_similarity_threshold: float = Field(ge=0)
 
 
 class RerankerConfig(BaseModel):

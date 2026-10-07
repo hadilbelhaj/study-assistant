@@ -1,45 +1,65 @@
-"""Builds the grounded prompt (roadmap section 2) and calls the LLM.
+"""Generate grounded answers from retrieved course context."""
 
-Isolated to one file on purpose: swapping providers later means
-editing only this file, not retrieve.py or rag.py.
+import re
 
-Ollama runs fully locally -- no API key, no internet call, no cost.
-It must be running (the Ollama app / `ollama serve`) and the model
-must already be pulled once via `ollama pull <model>`.
-"""
-from src.config import get_config
 from ollama import chat
 
-PROMPT_TEMPLATE = """Contexte (extrait de {source_file}, page {page}):
-{retrieved_chunks}
+from src.config import get_config
+from src.context import build_context
 
-Question: {query}
+NO_ANSWER = "Ce n'est pas dans vos documents fournis."
 
-Réponds uniquement à partir du contexte ci-dessus. Cite la source
-(fichier + page) pour chaque affirmation. Si le contexte ne
-contient pas la réponse, dis-le clairement plutôt que d'inventer.
+PROMPT_TEMPLATE = """You are a university study assistant.
+
+Answer the question using only the provided course material.
+
+Each context block has a source label such as [S1], [S2], or [S3].
+
+For factual statements supported by the context, cite the relevant source label.
+Use only the source labels provided in the context.
+Do not invent source labels or citation information.
+
+If the provided context does not contain enough information to answer the question reliably, say:
+"Ce n'est pas dans vos documents fournis."
+
+Context:
+
+{context}
+
+Question:
+{query}
+
+Answer:
 """
 
-def build_prompt(query: str, chunks: list[dict]) -> str:
-    context = "\n\n".join(
-        f"[{c['source_file']}, p.{c['page']}] {c['text']}" for c in chunks
-    )
-    first = chunks[0] if chunks else {"source_file": "?", "page": "?"}
-    return PROMPT_TEMPLATE.format(
-        source_file=first["source_file"],
-        page=first["page"],
-        retrieved_chunks=context,
+
+def generate(query: str, chunks: list[dict]) -> dict:
+    config = get_config()
+
+    if not chunks:
+        return {"answer": NO_ANSWER, "sources": []}
+
+    context_data = build_context(chunks)
+    prompt = PROMPT_TEMPLATE.format(
+        context=context_data["context"],
         query=query,
     )
 
-
-def generate(query: str, chunks: list[dict]) -> str:
-    config = get_config()
-    if not chunks:
-        return "Ce n'est pas dans vos documents fournis."
-    prompt = build_prompt(query, chunks)
     response = chat(
         model=config.generation.model,
         messages=[{"role": "user", "content": prompt}],
     )
-    return response["message"]["content"]
+    answer = response["message"]["content"].strip()
+
+    if NO_ANSWER in answer:
+        return {"answer": answer, "sources": []}
+
+    # Matches S1, S2... inside [S1], [S1, S2], [S1][S3], etc.
+    cited_ids = {f"S{n}" for n in re.findall(r"\bS(\d+)\b", answer)}
+    sources = [s for s in context_data["sources"] if s["id"] in cited_ids]
+
+    # Model forgot to cite: fall back to everything that was in the context
+    if not sources:
+        sources = context_data["sources"]
+
+    return {"answer": answer, "sources": sources}
