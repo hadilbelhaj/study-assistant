@@ -11,22 +11,34 @@ NO_ANSWER = "Ce n'est pas dans vos documents fournis."
 
 PROMPT_TEMPLATE = """You are a university study assistant.
 
-Answer the question using only the provided course material.
+FIRST, check whether the message is chitchat (greeting, thanks, goodbye,
+acknowledgement) or unrelated to the course.
+- If yes: reply in one short friendly sentence, in the user's language,
+  with NO citations, and ignore the context completely.
+  Example: "merci" -> "Avec plaisir ! N'hésitez pas si vous avez d'autres questions."
+- If no: follow the rules below.
+Answer the question using ONLY the provided course material.
 
-Each context block has a source label such as [S1], [S2], or [S3].
+IMPORTANT RULES:
 
-For factual statements supported by the context, cite the relevant source label.
-Use only the source labels provided in the context.
-Do not invent source labels or citation information.
-
-If the provided context does not contain enough information to answer the question reliably, say:
-"Ce n'est pas dans vos documents fournis."
+1. Do not use external knowledge.
+2. Do not invent facts, explanations, APIs, code, examples, or definitions.
+3. Every factual statement about the course must be supported by the provided context.
+4. Cite factual statements using exactly [S1], [S2], [S3], etc.
+5. Put the citation immediately after the sentence it supports.
+6. Never write "Source", "Source Label", "Source Label:", or any other citation format.
+7. Never invent a source label.
+8. If the context does not contain enough information to answer reliably, say:
+   "Ce n'est pas dans vos documents fournis."
+9. If the question asks for an example or code and the provided context does not contain enough information to construct it reliably, do not invent one.
+10. Preserve the terminology used in the course material.
 
 Context:
 
 {context}
 
 Question:
+
 {query}
 
 Answer:
@@ -57,9 +69,4 @@ def generate(query: str, chunks: list[dict]) -> dict:
     # Matches S1, S2... inside [S1], [S1, S2], [S1][S3], etc.
     cited_ids = {f"S{n}" for n in re.findall(r"\bS(\d+)\b", answer)}
     sources = [s for s in context_data["sources"] if s["id"] in cited_ids]
-
-    # Model forgot to cite: fall back to everything that was in the context
-    if not sources:
-        sources = context_data["sources"]
-
     return {"answer": answer, "sources": sources}

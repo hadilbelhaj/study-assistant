@@ -37,18 +37,15 @@ def build_context(chunks: list[dict]) -> dict[str, Any]:
             f"Content:\n{chunk.get('text', '').strip()}"
         )
 
-        sources.append(
-            {
-                "id": source_id,
-                "chunk_id": chunk_id,
-                "course": chunk.get("course"),
-                "lecture": chunk.get("lecture"),
-                "section": chunk.get("section"),
-                "source_file": chunk.get("source_file"),
-                "page_start": page_start,
-                "page_end": page_end,
-            }
-        )
+        sources.append({
+            "id": source_id,
+            "chunk_id": chunk_id,
+            "chapter": chunk.get("lecture"),
+            "section": chunk.get("section"),
+            "source_file": chunk.get("source_file"),
+            "page_start": page_start,
+            "page_end": page_end,
+        })
 
     return {
         "context": "\n\n".join(context_parts),

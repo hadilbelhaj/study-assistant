@@ -1,9 +1,12 @@
 """The one function scripts/run_cli.py and notebooks call."""
 from src.generate import generate
 from src.retrieve import retrieve
-
+from src.router import detect_smalltalk, REPLIES
 
 def rag_query(query: str, metadata_filter: dict | None = None) -> dict:
+    kind = detect_smalltalk(query)
+    if kind:
+        return {"answer": REPLIES[kind], "sources": []}
     chunks = retrieve(query, metadata_filter=metadata_filter)
 
     # Phase 2 will replace this with a real similarity threshold check
