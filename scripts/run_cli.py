@@ -1,12 +1,17 @@
-"""Plain CLI loop: Phase 1 interface, no UI yet.
 
-    python scripts/run_cli.py
+"""CLI for the RAG study assistant.
+
+Run from the project root:
+    python -m scripts.run_cli
 """
+
 import sys
 from pathlib import Path
+from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from src.conversation_store import ConversationStore
 from src.rag import rag_query
 
 
@@ -28,33 +33,45 @@ def format_source(source: dict) -> str:
 
 
 def main() -> None:
-    print("RAG study assistant — type a question, or 'quit' to exit.\n")
+    store = ConversationStore(max_messages=20, ttl_seconds=86400)
+    conversation_id = str(uuid4())
 
-    while True:
-        try:
-            query = input("> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
-            break
+    try:
+        store.ping()
+        print("RAG study assistant — type a question, or 'quit' to exit.")
+        print(f"Conversation ID: {conversation_id}\n")
 
-        if query.lower() in {"quit", "exit"}:
-            break
-        if not query:
-            continue
+        while True:
+            try:
+                query = input("> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                break
 
-        try:
-            result = rag_query(query)
-        except Exception as exc:
-            print(f"\nError: {exc}\n")
-            continue
+            if query.lower() in {"quit", "exit"}:
+                break
+            if not query:
+                continue
 
-        print(f"\n{result['answer']}\n")
+            try:
+                result = rag_query(
+                    query,
+                    conversation_id=conversation_id,
+                    conversation_store=store,
+                )
+            except Exception as exc:
+                print(f"\nError: {exc}\n")
+                continue
 
-        if result["sources"]:
-            print("Sources:")
-            for source in result["sources"]:
-                print(format_source(source))
-            print()
+            print(f"\n{result['answer']}\n")
+
+            if result["sources"]:
+                print("Sources:")
+                for source in result["sources"]:
+                    print(format_source(source))
+                print()
+    finally:
+        store.close()
 
 
 if __name__ == "__main__":

@@ -9,40 +9,31 @@ from src.context import build_context
 
 NO_ANSWER = "Ce n'est pas dans vos documents fournis."
 
-PROMPT_TEMPLATE = """You are a university study assistant.
+SYSTEM_PROMPT = """You are a university study assistant.
+Answer using ONLY the course context provided by the user.
 
-FIRST, check whether the message is chitchat (greeting, thanks, goodbye,
-acknowledgement) or unrelated to the course.
-- If yes: reply in one short friendly sentence, in the user's language,
-  with NO citations, and ignore the context completely.
-  Example: "merci" -> "Avec plaisir ! N'hésitez pas si vous avez d'autres questions."
-- If no: follow the rules below.
-Answer the question using ONLY the provided course material.
+RULES:
+1. Do not use external knowledge. Do not invent facts, explanations, APIs, code, examples, or definitions.
+2. You MAY reuse code or examples that appear in the context. You may NOT write new ones.
+3. Cite with exactly [S1], [S2], etc., at the end of each sentence that uses the context.
+   Never write "According to [S1]" and never invent a source label.Example of the expected style:"En Java, une classe hérite d'une autre avec le mot-clé extends [S1]
+4. If the context answers only part of the question, answer that part and say clearly
+   which part is missing from the course documents.
+5. Reply "Ce n'est pas dans vos documents fournis." ONLY if none of the context
+   passages is related to the question. If some passages are related, answer with
+   what they say, and note what is missing.
+6. Preserve the terminology used in the course material.
+7. If the message is not about the course (greeting, thanks...), reply in one short sentence
+   with no citations.
+"""
 
-IMPORTANT RULES:
-
-1. Do not use external knowledge.
-2. Do not invent facts, explanations, APIs, code, examples, or definitions.
-3. Every factual statement about the course must be supported by the provided context.
-4. Cite factual statements using exactly [S1], [S2], [S3], etc.
-5. Put the citation immediately after the sentence it supports.
-6. Never write "Source", "Source Label", "Source Label:", or any other citation format.
-7. Never invent a source label.
-8. If the context does not contain enough information to answer reliably, say:
-   "Ce n'est pas dans vos documents fournis."
-9. If the question asks for an example or code and the provided context does not contain enough information to construct it reliably, do not invent one.
-10. Preserve the terminology used in the course material.
-
-Context:
+USER_TEMPLATE = """Context:
 
 {context}
 
 Question:
 
-{query}
-
-Answer:
-"""
+{query}"""
 
 
 def generate(query: str, chunks: list[dict]) -> dict:
@@ -52,19 +43,28 @@ def generate(query: str, chunks: list[dict]) -> dict:
         return {"answer": NO_ANSWER, "sources": []}
 
     context_data = build_context(chunks)
-    prompt = PROMPT_TEMPLATE.format(
+    """prompt = PROMPT_TEMPLATE.format(
         context=context_data["context"],
         query=query,
-    )
+    )"""
 
     response = chat(
-        model=config.generation.model,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    model=config.generation.model,
+    messages=[
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": USER_TEMPLATE.format(
+            context=context_data["context"], query=query)},
+    ],
+    options={"temperature": 0, "num_ctx": 8192},)
+    print("PROMPT TOKENS:", response.get("prompt_eval_count"))
     answer = response["message"]["content"].strip()
 
     if NO_ANSWER in answer:
-        return {"answer": answer, "sources": []}
+        cleaned = answer.replace(NO_ANSWER, "").strip()
+        if len(cleaned) < 20:          # the answer is only "not in your documents"
+            return {"answer": NO_ANSWER, "sources": []}
+        else:
+            answer = cleaned               # otherwise keep the real answer and its source
 
     # Matches S1, S2... inside [S1], [S1, S2], [S1][S3], etc.
     cited_ids = {f"S{n}" for n in re.findall(r"\bS(\d+)\b", answer)}

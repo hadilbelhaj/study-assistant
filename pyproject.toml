@@ -8,7 +8,11 @@ version = "0.1.0"
 description = "RAG Study Assistant project"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "qdrant-client",
+    "sentence-transformers",
+    "redis>=5.0,<7.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -18,4 +22,4 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]  # pycodestyle errors, Pyflakes, import sorting
+select = ["E", "F", "I"]
