@@ -8,6 +8,7 @@ _PATTERNS = {
     "bye": r"(au revoir|bye|à bientôt|a bientot|à plus|a plus|bonne (journée|soirée|nuit))",
     "ack": r"(ok|okay|d'accord|super|parfait|cool|top|génial|nickel|compris)",
     "howru": r"(ça va|ca va|comment (ça|ca) va|comment vas-tu)",
+    "affection": r"(je t'? ?aime|bravo|félicitations|tu es (super|génial|top)|t'es (super|génial|top))",
 }
 
 _COMPILED = {
@@ -21,6 +22,7 @@ REPLIES = {
     "bye": "À bientôt, bon courage pour vos révisions !",
     "ack": "D'accord ! Je suis là si vous avez une autre question.",
     "howru": "Ça va bien, merci ! Que voulez-vous réviser ?",
+    "affection": "Merci, c'est gentil ! Posez-moi une question sur vos cours.",
 }
 
 

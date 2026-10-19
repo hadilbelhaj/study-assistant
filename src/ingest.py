@@ -37,7 +37,7 @@ PROPER_NOUNS = {
 }
 
 FILENAME_PATTERN = re.compile(r"([a-z]+)(\d+)(?:-part(\d+))?-(.+)")
-
+MIN_CHUNK_CHARS = 80
 
 def get_document_id(pdf_path: Path) -> str:
     """Return the SHA-256 hash of the PDF content."""
@@ -198,7 +198,8 @@ def chunk_document(document, metadata: dict, document_id: str, language: str, ch
     for chunk_index, doc_chunk in enumerate(chunker.chunk(dl_doc=document)):
         text = chunker.contextualize(doc_chunk)
 
-        if not text.strip():
+        if len(text.strip()) < MIN_CHUNK_CHARS:
+            logger.info("Skipped short chunk: %r", text.strip())
             continue
 
         page_start, page_end = get_page_range(doc_chunk)

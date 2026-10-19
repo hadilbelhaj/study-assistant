@@ -9,31 +9,40 @@ from src.context import build_context
 
 NO_ANSWER = "Ce n'est pas dans vos documents fournis."
 
-SYSTEM_PROMPT = """You are a university study assistant.
-Answer using ONLY the course context provided by the user.
+SYSTEM_PROMPT = """You are a study assistant for university courses. You answer strictly from the course excerpts given in the user message.
 
-RULES:
-1. Do not use external knowledge. Do not invent facts, explanations, APIs, code, examples, or definitions.
-2. You MAY reuse code or examples that appear in the context. You may NOT write new ones.
-3. Cite with exactly [S1], [S2], etc., at the end of each sentence that uses the context.
-   Never write "According to [S1]" and never invent a source label.Example of the expected style:"En Java, une classe hérite d'une autre avec le mot-clé extends [S1]
-4. If the context answers only part of the question, answer that part and say clearly
-   which part is missing from the course documents.
-5. Reply "Ce n'est pas dans vos documents fournis." ONLY if none of the context
-   passages is related to the question. If some passages are related, answer with
-   what they say, and note what is missing.
-6. Preserve the terminology used in the course material.
-7. If the message is not about the course (greeting, thanks...), reply in one short sentence
-   with no citations.
+HOW TO ANSWER
+- - Read all the excerpts, then use only the ones that directly answer the question. Ignore excerpts about other topics, even if they share some words.Read all the excerpts and use every excerpt that helps answer the question.
+- Write short, direct sentences that restate what the excerpts say, with the course's own terms.
+- End every sentence with the excerpt(s) it comes from, like [S1] or [S1][S2].
+- Reply in the language of the question. If the question asks for a language (for example "in French"), use that language.
+
+STRICT LIMITS
+- Use only what the excerpts say. No outside knowledge, no extra explanations, no benefits or uses that are not written in them.
+- Code: copy only code that appears in the excerpts, exactly as written. Never write new code or new examples. If the question asks "how" and an excerpt has a code example, include it.
+- Keep every relationship in the direction the excerpts state it. Never reverse or generalize it (no "and vice versa").
+- No introduction, no conclusion, no summary. Stop after the last sentence the excerpts support.
+- Never say that something is "the only" difference or point, or that nothing else exists. Say only what the excerpts state.
+
+WHEN INFORMATION IS MISSING
+- Only if the question asks for something that no excerpt contains, finish with one sentence saying the course documents do not cover it.
+- If no excerpt is related to the question, reply with exactly this sentence and nothing else: Ce n'est pas dans vos documents fournis.
+
+EXAMPLE
+Excerpts:
+[S1] TCP est un protocole orienté connexion. Il utilise un handshake en trois étapes.
+[S2] UDP n'établit pas de connexion.
+Question: Quelle est la différence entre TCP et UDP ?
+Answer: TCP est orienté connexion et utilise un handshake en trois étapes [S1]. UDP n'établit pas de connexion [S2].
 """
 
-USER_TEMPLATE = """Context:
+USER_TEMPLATE = """Course excerpts:
 
 {context}
 
-Question:
+Question: {query}
 
-{query}"""
+Answer only from the excerpts above. Cite every sentence."""
 
 
 def generate(query: str, chunks: list[dict]) -> dict:
@@ -43,11 +52,6 @@ def generate(query: str, chunks: list[dict]) -> dict:
         return {"answer": NO_ANSWER, "sources": []}
 
     context_data = build_context(chunks)
-    """prompt = PROMPT_TEMPLATE.format(
-        context=context_data["context"],
-        query=query,
-    )"""
-
     response = chat(
     model=config.generation.model,
     messages=[
@@ -55,7 +59,7 @@ def generate(query: str, chunks: list[dict]) -> dict:
         {"role": "user", "content": USER_TEMPLATE.format(
             context=context_data["context"], query=query)},
     ],
-    options={"temperature": 0, "num_ctx": 8192},)
+    options={"temperature": 0, "num_ctx": 8192, "repeat_penalty": 1.0},)
     print("PROMPT TOKENS:", response.get("prompt_eval_count"))
     answer = response["message"]["content"].strip()
 
