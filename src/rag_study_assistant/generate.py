@@ -4,8 +4,8 @@ import re
 
 from ollama import chat
 
-from src.config import get_config
-from src.context import build_context
+from rag_study_assistant.config import get_config
+from rag_study_assistant.context import build_context
 
 NO_ANSWER = "Ce n'est pas dans vos documents fournis."
 

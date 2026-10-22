@@ -5,7 +5,7 @@ Run from the project root:
     python -m scripts.check_conversation_store
 """
 
-from src.conversation_store import ConversationStore
+from rag_study_assistant.conversation_store import ConversationStore
 
 
 def main() -> None:

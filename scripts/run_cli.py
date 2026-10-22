@@ -11,8 +11,8 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.conversation_store import ConversationStore
-from src.rag import rag_query
+from rag_study_assistant.conversation_store import ConversationStore
+from rag_study_assistant.rag import rag_query
 
 
 def format_pages(source: dict) -> str:

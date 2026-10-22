@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from src.config import get_config
-from src.qdrant_storage import ensure_collection, get_qdrant_client, upsert_chunks
+from rag_study_assistant.config import get_config
+from rag_study_assistant.qdrant_storage import ensure_collection, get_qdrant_client, upsert_chunks
 
 
 BATCH_SIZE = 32

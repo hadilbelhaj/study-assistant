@@ -1,10 +1,10 @@
 
 """Main RAG entry point used by the CLI and notebooks."""
-from src.conversation_store import ConversationStore
-from src.generate import generate
-from src.query_rewriter import rewrite_query
-from src.retrieve import retrieve
-from src.router import detect_smalltalk, REPLIES
+from rag_study_assistant.conversation_store import ConversationStore
+from rag_study_assistant.generate import generate
+from rag_study_assistant.query_rewriter import rewrite_query
+from rag_study_assistant.retrieve import retrieve
+from rag_study_assistant.router import detect_smalltalk, REPLIES
 
 def rag_query(
     query: str,
