@@ -2,8 +2,8 @@
 
 from qdrant_client import QdrantClient, models
 
-from src.config import get_config
-from src.embed import embed_query, embed_texts
+from rag_study_assistant.config import get_config
+from rag_study_assistant.embed import embed_query, embed_texts
 
 
 FILTER_FIELDS = ["course", "study_year", "semester"]

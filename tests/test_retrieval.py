@@ -1,96 +1,132 @@
-import numpy as np
 
-from src import retrieve as retrieval
+"""Unit tests for Qdrant hybrid retrieval and reranking."""
 
+from types import SimpleNamespace
 
-def make_chunk(chunk_id: str) -> dict:
-    return {"id": chunk_id, "text": f"text for {chunk_id}"}
-
-
-def test_reciprocal_rank_fusion_ranks_shared_documents_higher():
-    results_a = [
-        make_chunk("A"),
-        make_chunk("B"),
-        make_chunk("C"),
-    ]
-    results_b = [
-        make_chunk("B"),
-        make_chunk("C"),
-        make_chunk("D"),
-    ]
-
-    fused = retrieval.reciprocal_rank_fusion(
-        [results_a, results_b],
-        rrf_k=60,
-    )
-
-    ranked_ids = [result["id"] for result in fused]
-
-    assert ranked_ids[0] == "B"
-    assert set(ranked_ids) == {"A", "B", "C", "D"}
+import rag_study_assistant.retrieve as retrieval
 
 
-def test_reciprocal_rank_fusion_keeps_all_documents():
-    results_a = [make_chunk("A"), make_chunk("B")]
-    results_b = [make_chunk("C"), make_chunk("D")]
-
-    fused = retrieval.reciprocal_rank_fusion(
-        [results_a, results_b],
-        rrf_k=60,
-    )
-
-    ranked_ids = [result["id"] for result in fused]
-
-    assert len(ranked_ids) == 4
-    assert set(ranked_ids) == {"A", "B", "C", "D"}
-
-
-def test_retrieve_uses_candidate_k_and_reranks(monkeypatch):
-    config = type(
-        "Config",
-        (),
-        {
-            "retrieval": type(
-                "RetrievalConfig",
-                (),
-                {"top_k": 5, "candidate_k": 20, "rrf_k": 60},
-            )()
+def make_result(chunk_id: str, score: float) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=chunk_id,
+        payload={
+            "text": f"Content of chunk {chunk_id}",
+            "course": "java",
         },
-    )()
-
-    monkeypatch.setattr(retrieval, "get_config", lambda: config)
-
-    class FakeStore:
-        def __init__(self, name: str):
-            self.name = name
-
-        def load(self):
-            pass
-
-        def search_dense(self, query_vector, k, metadata_filter=None):
-            assert k == 20
-            return [make_chunk("A"), make_chunk("B")]
-
-        def search_sparse(self, query, k, metadata_filter=None):
-            assert k == 20
-            return [make_chunk("B"), make_chunk("C")]
-
-    monkeypatch.setattr(retrieval, "LocalStore", FakeStore)
-    monkeypatch.setattr(
-        retrieval,
-        "embed_query",
-        lambda query: np.array([0.1, 0.2, 0.3], dtype="float32"),
+        score=score,
     )
+
+
+def make_config(top_k: int = 2, candidate_k: int = 20) -> SimpleNamespace:
+    return SimpleNamespace(
+        retrieval=SimpleNamespace(
+            top_k=top_k,
+            candidate_k=candidate_k,
+        )
+    )
+
+
+def test_retrieve_stages_uses_hybrid_search_and_reranks(monkeypatch):
+    monkeypatch.setattr(
+        retrieval, "get_config", lambda: make_config()
+    )
+
+    results = [
+        make_result("A", 0.95),
+        make_result("B", 0.90),
+        make_result("C", 0.85),
+    ]
+
+    calls = {}
+
+    def fake_hybrid_search(query, limit, candidate_k, metadata_filter):
+        calls["query"] = query
+        calls["limit"] = limit
+        calls["candidate_k"] = candidate_k
+        calls["metadata_filter"] = metadata_filter
+        return results
+
+    monkeypatch.setattr(retrieval, "hybrid_search", fake_hybrid_search)
 
     def fake_rerank(query, chunks, top_k):
-        assert query == "test query"
-        assert top_k == 5
-        assert len(chunks) == 3
+        calls["rerank_query"] = query
+        calls["rerank_chunks"] = chunks
+        calls["rerank_top_k"] = top_k
         return chunks[:top_k]
 
     monkeypatch.setattr(retrieval, "rerank", fake_rerank)
 
+    metadata_filter = {"course": "java"}
+
+    stages = retrieval.retrieve_stages(
+        query="Explain Java collections",
+        metadata_filter=metadata_filter,
+    )
+
+    assert calls["query"] == "Explain Java collections"
+    assert calls["limit"] == 20
+    assert calls["candidate_k"] == 20
+    assert calls["metadata_filter"] == metadata_filter
+
+    assert len(calls["rerank_chunks"]) == 3
+    assert calls["rerank_top_k"] == 2
+
+    assert len(stages["hybrid"]) == 2
+    assert len(stages["reranked"]) == 2
+
+    assert stages["hybrid"][0]["id"] == "A"
+    assert stages["hybrid"][0]["hybrid_score"] == 0.95
+
+
+def test_retrieve_returns_reranked_results(monkeypatch):
+    expected = [
+        {"id": "B", "text": "Relevant chunk"},
+        {"id": "A", "text": "Another chunk"},
+    ]
+
+    def fake_retrieve_stages(query, k=None, metadata_filter=None):
+        return {
+            "hybrid": [{"id": "A"}, {"id": "B"}],
+            "reranked": expected,
+        }
+
+    monkeypatch.setattr(
+        retrieval, "retrieve_stages", fake_retrieve_stages
+    )
+
     results = retrieval.retrieve("test query")
 
-    assert len(results) == 3
-    assert all("id" in result for result in results)
+    assert results == expected
+
+
+def test_retrieve_stages_handles_metadata_filter(monkeypatch):
+    monkeypatch.setattr(
+        retrieval, "get_config", lambda: make_config()
+    )
+
+    received = {}
+
+    def fake_hybrid_search(query, limit, candidate_k, metadata_filter):
+        received["metadata_filter"] = metadata_filter
+        return []
+
+    monkeypatch.setattr(retrieval, "hybrid_search", fake_hybrid_search)
+
+    monkeypatch.setattr(
+        retrieval,
+        "rerank",
+        lambda query, chunks, top_k: [],
+    )
+
+    retrieval.retrieve_stages(
+        query="test query",
+        metadata_filter={
+            "course": "java",
+            "semester": "S2",
+        },
+    )
+
+    assert received["metadata_filter"] == {
+        "course": "java",
+        "semester": "S2",
+    }

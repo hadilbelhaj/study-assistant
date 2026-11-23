@@ -4,7 +4,7 @@ from functools import lru_cache
 
 from sentence_transformers import CrossEncoder
 
-from src.config import get_config
+from rag_study_assistant.config import get_config
 
 
 @lru_cache(maxsize=1)

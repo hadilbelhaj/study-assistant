@@ -6,7 +6,7 @@ import logging
 
 from ollama import chat
 
-from src.config import get_config
+from rag_study_assistant.config import get_config
 
 logger = logging.getLogger(__name__)
 

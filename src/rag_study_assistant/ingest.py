@@ -16,9 +16,9 @@ from docling.document_converter import DocumentConverter
 from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
 from transformers import AutoTokenizer
 
-from src.config import get_config
-from src.language import detect_language
-from src.schemas import Chunk
+from rag_study_assistant.config import get_config
+from rag_study_assistant.language import detect_language
+from rag_study_assistant.schemas import Chunk
 
 
 logger = logging.getLogger(__name__)

@@ -7,6 +7,11 @@ Description-Content-Type: text/markdown
 Requires-Dist: qdrant-client
 Requires-Dist: sentence-transformers
 Requires-Dist: redis<7.0,>=5.0
+Requires-Dist: pydantic<3.0,>=2.7
+Requires-Dist: PyYAML<7.0,>=6.0
+Requires-Dist: ollama<1.0,>=0.4
+Requires-Dist: fastapi<1.0,>=0.115
+Requires-Dist: uvicorn[standard]<1.0,>=0.30
 
 # RAG Study Assistant
 

@@ -1,4 +1,3 @@
-
 """Short-term conversation history backed by Redis."""
 
 import json

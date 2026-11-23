@@ -1,4 +1,4 @@
-from src.context import build_context
+from rag_study_assistant.context import build_context
 
 
 def test_build_context_assigns_source_ids():

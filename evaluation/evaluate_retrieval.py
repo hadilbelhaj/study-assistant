@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from src.retrieve import retrieve_stages
+from rag_study_assistant.retrieve import retrieve_stages
 
 
 K_VALUES = [1, 3, 5, 10]

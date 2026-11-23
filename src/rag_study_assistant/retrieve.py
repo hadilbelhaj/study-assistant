@@ -1,8 +1,8 @@
 """Retrieval using Qdrant hybrid search and reranking."""
 
-from src.config import get_config
-from src.qdrant_storage import hybrid_search
-from src.reranker import rerank
+from rag_study_assistant.config import get_config
+from rag_study_assistant.qdrant_storage import hybrid_search
+from rag_study_assistant.reranker import rerank
 
 
 def retrieve_stages(query: str, k: int | None = None, metadata_filter: dict | None = None) -> dict[str, list[dict]]:
