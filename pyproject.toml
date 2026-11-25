@@ -29,3 +29,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+[tool.setuptools.package-data]
+rag_study_assistant = [
+    "frontend/*.html",
+    "frontend/*.css",
+    "frontend/*.js",
+]

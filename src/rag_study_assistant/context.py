@@ -1,3 +1,4 @@
+
 """Build structured LLM context from retrieved chunks."""
 
 from typing import Any
@@ -9,7 +10,7 @@ def build_context(chunks: list[dict]) -> dict[str, Any]:
     context_parts = []
     sources = []
 
-    for index, chunk in enumerate(chunks, start=1):
+    for chunk in chunks:
         chunk_id = str(chunk["id"])
 
         if chunk_id in seen_ids:
@@ -40,7 +41,8 @@ def build_context(chunks: list[dict]) -> dict[str, Any]:
         sources.append({
             "id": source_id,
             "chunk_id": chunk_id,
-            "chapter": chunk.get("lecture"),
+            "course": chunk.get("course"),
+            "lecture": chunk.get("lecture"),
             "section": chunk.get("section"),
             "source_file": chunk.get("source_file"),
             "page_start": page_start,

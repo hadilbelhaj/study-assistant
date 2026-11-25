@@ -1,0 +1,124 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f8f9fc">
+    <title>Study Assistant</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="app-layout">
+
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">S</div>
+                <div>
+                    <h2>Study Assistant</h2>
+                    <span>AI-powered learning</span>
+                </div>
+            </div>
+
+            <button id="new-chat-button" class="new-chat-button">
+                <span>＋</span> New conversation
+            </button>
+
+            <div class="sidebar-info">
+                <span class="sidebar-label">YOUR STUDY SPACE</span>
+                <div class="info-item">
+                    <span class="info-icon">▤</span>
+                    <span>Course materials</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">✧</span>
+                    <span>AI-powered explanations</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-icon">⌕</span>
+                    <span>Referenced answers</span>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="status-dot"></div>
+                <span>Private study session</span>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <span class="topbar-title">Your learning space</span>
+                    <span class="topbar-subtitle">Ask. Understand. Learn.</span>
+                </div>
+
+                <div class="connection-status" id="connection-status">
+                    <span class="status-dot"></span>
+                    <span id="connection-label">Connecting...</span>
+                </div>
+            </header>
+
+            <section class="chat-container" id="chat-container">
+
+                <div id="welcome-screen" class="welcome-screen">
+                    <div class="welcome-icon">✦</div>
+                    <h1>What would you like to learn today?</h1>
+                    <p>
+                        Ask questions about your university courses.
+                        I'll help you understand concepts using your
+                        provided study materials.
+                    </p>
+
+                    <div class="suggestion-grid">
+                        <button class="suggestion-card" data-prompt="Explique-moi les collections en Java.">
+                            <span>01 · Java</span>
+                            <strong>Explain Java collections</strong>
+                            <small>Understand interfaces and implementations.</small>
+                        </button>
+
+                        <button class="suggestion-card" data-prompt="Quelle est la différence entre XSLT et XPath ?">
+                            <span>02 · XML</span>
+                            <strong>Compare XSLT and XPath</strong>
+                            <small>Explore their differences and uses.</small>
+                        </button>
+
+                        <button class="suggestion-card" data-prompt="Pourquoi OFDM réduit-il l'interférence intersymbole (ISI) ?">
+                            <span>03 · Networks</span>
+                            <strong>Understand OFDM</strong>
+                            <small>Learn how it reduces intersymbol interference.</small>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="messages" class="messages" aria-live="polite"></div>
+
+            </section>
+
+            <footer class="composer-area">
+                <form id="chat-form" class="chat-form">
+                    <textarea
+                        id="message-input"
+                        rows="1"
+                        maxlength="2000"
+                        placeholder="Ask something about your courses..."
+                        aria-label="Your question"
+                        required
+                    ></textarea>
+
+                    <button type="submit" id="send-button" class="send-button" aria-label="Send message">
+                        ↑
+                    </button>
+                </form>
+
+                <p class="disclaimer">
+                    Answers are generated from your course materials.
+                    Always check the cited sources.
+                </p>
+            </footer>
+        </main>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

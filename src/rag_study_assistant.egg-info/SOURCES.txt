@@ -20,6 +20,12 @@ src/rag_study_assistant.egg-info/SOURCES.txt
 src/rag_study_assistant.egg-info/dependency_links.txt
 src/rag_study_assistant.egg-info/requires.txt
 src/rag_study_assistant.egg-info/top_level.txt
+src/rag_study_assistant/api/__init__.py
+src/rag_study_assistant/api/main.py
+src/rag_study_assistant/api/schemas.py
+src/rag_study_assistant/frontend/app.js
+src/rag_study_assistant/frontend/index.html
+src/rag_study_assistant/frontend/style.css
 tests/test_context.py
 tests/test_ingest.py
 tests/test_retrieval.py

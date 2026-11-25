@@ -13,11 +13,14 @@ from rag_study_assistant.api.schemas import ChatRequest, ChatResponse
 from rag_study_assistant.conversation_store import ConversationStore
 from rag_study_assistant.qdrant_storage import get_qdrant_client
 from rag_study_assistant.rag import rag_query
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Start with one model request at a time.
+
 inference_lock = Lock()
 
 
@@ -101,3 +104,10 @@ def chat_endpoint(payload: ChatRequest, request: Request):
             status_code=500,
             detail="The assistant could not process your request.",
         )
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
+app.mount(
+    "/",
+    StaticFiles(directory=FRONTEND_DIR, html=True),
+    name="frontend",
+)
